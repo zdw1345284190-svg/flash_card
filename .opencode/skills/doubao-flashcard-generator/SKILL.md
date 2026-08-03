@@ -1,6 +1,6 @@
 ---
 name: doubao-flashcard-generator
-description: 闪卡图片生成与数据编辑工作流。输入一个闪卡 JSON 数据文件（如 data260802.json / testdata.json），自动完成：为每张卡生成"图片提示词"→ 通过调试端口 9700 的浏览器（豆包）逐张生成并下载图片到 <base>_images/ 目录 → 产出 <base>.js（含图片提示词 + image 数组）与 <base>.html（展示/编辑/审核工具）。Triggers: 闪卡图片、生成图片、豆包生成、flashcard、卡片配图、data.html、testdata、260802、笠翁对韵、图片提示词。
+description: 闪卡图片生成与数据编辑工作流。输入一个闪卡 JSON 数据文件（如 data_260802.json / testdata.json），自动完成：为每张卡生成"图片提示词"→ 通过调试端口 9700 的浏览器（豆包）逐张生成并下载图片到 <base>_images/ 目录 → 把「图片提示词 + image 数组」直接写回 <base>.json → 生成 <base>-review.html（审核工具：上传 JSON 加载，样式同旧版 data_editor.html）。Triggers: 闪卡图片、生成图片、豆包生成、flashcard、卡片配图、data.html、review、testdata、260802、笠翁对韵、图片提示词。
 ---
 
 # 闪卡图片生成与数据编辑工作流（Doubao Flashcard Generator）
@@ -12,14 +12,18 @@ description: 闪卡图片生成与数据编辑工作流。输入一个闪卡 JSO
 ## 输入 / 输出
 
 ```
-输入：data260802.json          （文件名可变，任意路径）
+输入：data_260802.json        （文件名可变，任意路径；卡片数组，字段 keyword/source/logic/analysis/category）
 输出：
-  ├── <base>_images/           # 生成的图片目录（如 data260802_images/）
-  ├── <base>.js                # JS 版数据：含"图片提示词"字段 + image 路径数组（图片已生成填入）
-  └── <base>.html              # 展示与编辑工具（增删图片/选默认图/改字段/导出），最终人工审核用
+  ├── <base>_images/           # 生成的图片目录（如 data_260802_images/）
+  ├── <base>.json              # 更新原数据文件：每张卡写回「图片提示词」+ image 路径数组（图片已生成填入）
+  └── <base>-review.html       # 审核工具（样式同旧版 data_editor.html）：上传 JSON 加载→编辑→导出 JSON 覆盖源文件
 ```
 
-其中 `<base>` = 输入文件去掉扩展名的文件名（`data260802.json` → `<base>` = `data260802`）。
+其中 `<base>` = 输入文件去掉扩展名的文件名（`data_260802.json` → `<base>` = `data_260802`，产物如 `data_260802-review.html`、`data_260802_images/`）。
+
+> **流程变更说明**：旧流程产出 `<base>.js`（`const __BASE__ = [...]`）+ `<base>.html`（`<script src="data/xxx.js">` 加载）。已被取消：
+> - 图片生成结果**直接写回 `<base>.json`**（不再生成 JS 版数据文件）
+> - 审核工具改为 **上传 JSON 加载**（file:// 下 `fetch` 受限，用 `<input type=file>` + FileReader 读取），导出 JSON 下载后手动覆盖源文件
 
 ## 前置条件
 
@@ -29,7 +33,7 @@ description: 闪卡图片生成与数据编辑工作流。输入一个闪卡 JSO
 
 ## 步骤 1：为每张卡生成「图片提示词」
 
-在卡片对象中加入 `图片提示词` 字段（放在 `image` 之后、`keyword` 之前，保持输出格式与现有 testdata.js 一致）。提示词模板：
+在卡片对象中加入 `图片提示词` 字段（放在 `image` 之后、`keyword` 之前，与 `<base>.json` 字段序一致；构建时经 build.js 写回 json）。提示词模板：
 
 ```
 国风儿童插画：<根据 keyword 与 analysis 描绘的 60~100 字场景>，构图大气留白，色彩明亮清新，扁平卡通风格，圆润可爱线条，适合儿童闪卡横版构图，无文字
@@ -84,50 +88,49 @@ $env:NODE_PATH = "C:\Users\bruce\AppData\Roaming\npm\node_modules"; node gen_ima
 
 实现建议：生成脚本中为 CARDS 维护进度标记（如已下载的 `prefix` 集合），每轮提交前 sleep 15~30s；遇到"正在生成"长时间无新图或限流文案时抛错终止，由执行者决定切换会话后续跑。
 
-## 步骤 3：生成 <base>.js（JS 版数据）
+## 步骤 3：把「图片提示词 + image」写回 <base>.json
 
-把步骤 1 的结果写为 JS 文件，格式与 `data/testdata.js` 完全一致：
+图片全部生成后，运行构建脚本把结果**直接更新到原 JSON 数据文件**（不再生成 JS 版数据）：
 
-```js
-// 注释头（说明数据用途与 image 字段含义）
-const <base> = [
-  {
-    "image": ["<base>_images/tian_1.png", "<base>_images/tian_2.png"],
-    "图片提示词": "国风儿童插画：……无文字",
-    "keyword": "天",
-    "logic": "上联'天'代表苍穹高远",
-    "source": "天对地，雨对风",
-    "analysis": "天空高远广阔，是自然空间的典型意象",
-    "category": "卷上·一东"
-  },
-  ...
-];
+```
+$env:NODE_PATH = "C:\Users\bruce\AppData\Roaming\npm\node_modules"; node work_data260802/build.js
 ```
 
-规范：
-- 字段顺序：`image` → `图片提示词` → `keyword` → `logic` → `source` → `analysis` → `category`
-- `image` 为**路径数组**（可多张），路径用 `<base>_images/` 前缀
-- 全局变量名 = `<base>`（如 `data260802`），供 HTML 以 `<script src>` 直接引用
-- UTF-8 编码，2 空格缩进，字段双引号
+build.js 职责（参考 `work_data260802/build.js` 按需修改 BASE）：
+1. 读 `<base>.json` 原始卡片 + 图片元数据清单（如 `work_data260802/cards.js`：`{idx, keyword, prefix, prompt}`，`prompt` 已含统一风格后缀）
+2. 每张卡按 `image → 图片提示词 → keyword → logic → source → analysis → category` 字段序重建对象；`image` 从 `<base>_images/` 按 `<prefix>_<n>.png` 正则枚举排序填入；`图片提示词` 直接取 `meta.prompt`（**勿再拼接后缀**，已包含）
+3. `JSON.stringify(out, null, 2)` 写回 `<base>.json`（中文原样不转义）
+4. 从 `reference/data_review.html` 模板（`__BASE__` 占位符）生成 `<base>-review.html`
 
-## 步骤 4：生成 <base>.html（展示与编辑工具）
+验收（node 侧）：
+- json 可 `require`，字段序正确，`图片提示词` 以「国风儿童插画：」开头且不出现 `undefined`，image 路径全部真实存在、无重复
 
-基于 `reference/data_editor.html` 模板复制，把其中所有 `testdata_` 前缀替换为 `<base>_`（含 `testdata.js` 引用路径、`<base>_images/` 路径），文件名改为 `<base>.html`。
+## 步骤 4：生成 <base>-review.html（审核工具，上传 JSON 加载）
 
-工具必须包含以下能力（模板已实现，改动时保持）：
-- 顶部工具栏：新增卡片、删除当前卡片、**复制 `<base>.js`（打开模态框显示最新完整内容，自动全选，可一键复制到剪贴板，供手动粘贴覆盖 GitHub 上的源文件——浏览器无法直接写项目文件）**、导出 `<base>.js`、导出 JSON
-- 左侧卡片列表（keyword + category），点击切换
+基于 `reference/data_review.html` 模板复制，把其中所有 `__BASE__` 占位符替换为 `<base>`（含 `data/<base>.json` 引用路径、`<base>_images/` 路径），文件名 `<base>-review.html`（如 `data_260802-review.html`）。
+
+**数据流（与旧版 `data_editor.html` 的关键区别）**：
+- **不再 `<script src="data/xxx.js">` 加载**——页面初始为空状态，点「上传 JSON」（隐藏 `<input type=file accept=".json">` + FileReader）读取任意 JSON 文件
+- 上传后 `normalizeCard` 按 schema 字段序重建对象（image 数组化、缺失字段补空、未知字段保留尾部），并写入 localStorage 草稿
+- **数据一律不自动加载**：页面打开始终为空状态（「选择 JSON 文件」引导）；若存在草稿，空状态额外显示「恢复上次草稿」入口（含张数提示），点击才载入草稿（`appliedDraft` 标记，此时「恢复原始数据」= 清除草稿回空态）；上传 JSON 后才进入编辑态
+- 编辑完成点「导出 JSON」：模态框展示最新完整内容（自动全选），可**下载** `<base>.json` 或复制粘贴，手动覆盖项目 `data/<base>.json`（浏览器无法直接写文件系统）
+
+工具保留能力（模板已实现，改动时保持）：
+- 顶部工具栏：上传 JSON、新增卡片、删除当前卡片、导出 JSON
+- 左侧卡片列表（keyword + category + 图数），点击切换；↑/↓ 键盘切换（输入框内不触发）
 - 右侧编辑区：所有字段可编辑（图片提示词用 textarea）
 - 图片管理：缩略图网格 + 每张图「删除」；第一张图为「默认」徽章；「设为默认」把图移到数组首位（不改 schema）；「选择 `<base>_images/` 目录」按钮用 `input[webkitdirectory]` 枚举目录图片作为图片库，点击追加到 image 数组（已在数组中则禁用），另提供手动输入文件名兜底
-- localStorage 自动保存草稿（key `<base>_draft`）+ 草稿提示条 +「恢复原始数据」按钮
+- localStorage 自动保存草稿（key `<base>_draft`）+ 草稿提示条 +「恢复原始数据」按钮（上传后的原始数据 / 仅草稿时清除草稿回空态）
+- **草稿不自动加载**：打开始终空状态，有草稿时空状态显示「恢复上次草稿」入口（点击才载入）——用户明确要求"需要用户点击才行"，勿改回自动加载
 - **草稿路径迁移**：加载草稿时把旧目录前缀（`images/`）自动迁移为 `<base>_images/`，防止重命名后裂图
-- 导出 `<base>.js` 时恢复中文（JSON.stringify 后把 `\uXXXX` 还原），且与输入 JS 格式逐字节一致
+- 导出 JSON 时恢复中文（JSON.stringify 后把 `\uXXXX` 还原）
 - 纯原生 HTML/CSS/JS 单文件、无外部依赖、`<meta charset="utf-8">`、`file://` 双击可用
 - **模态框 CSS 注意**：`.modal-mask` 显式 `display:flex` 会覆盖 `hidden` 属性（`display:none`），必须额外加 `.modal-mask[hidden]{display:none}`，否则隐藏的遮罩会拦截点击
+- 空状态（未上传时）全屏引导：大按钮「选择 JSON 文件」触发上传
 
 ## 步骤 4.5：移动端适配（手机审查卡片，模板已内置）
 
-`reference/data_editor.html` 自带移动端适配（`@media (max-width:767px)`），手机打开 `<base>.html` 即可单栏审查卡片。改动模板时保持以下设计（含踩坑结论）：
+`reference/data_review.html` 自带移动端适配（`@media (max-width:767px)`），手机打开 `<base>-review.html` 即可单栏审查卡片。改动模板时保持以下设计（含踩坑结论）：
 
 **布局 = 纯 flex 固定框架（最终方案，勿改回其他方案）**
 - app 高度锁死视口：`body{overflow:hidden; height:100%; height:100dvh}`（`100dvh` 兜底 iOS 地址栏，`height:100%` 兜底旧浏览器）
@@ -160,18 +163,21 @@ await np.setViewportSize({ width: 375, height: 812 });  // 手机视口
 
 ## 步骤 5：验收
 
-1. 全部产出物命名一致：`<base>.js` / `<base>.html` / `<base>_images/`
-2. `<base>.js` 可用 node vm 沙箱加载，image 路径全部真实存在
-3. 浏览器打开 `<base>.html`：所有卡片渲染、所有图片加载成功（无裂图）、无控制台报错
-4. 编辑流程可用：增删图片、设为默认、改字段、导出（导出内容与页面数据一致）
-5. **必须连接用户浏览器（9700 端口）验证，不要只在自己的新浏览器实例验证**——localStorage 按源隔离，新建实例看不到用户环境里的草稿/历史状态；用户浏览器中的旧草稿（旧目录前缀）是裂图头号元凶，验证时检查并清理 `<base>_draft`
+1. 全部产出物命名一致：`<base>.json`（已更新）/ `<base>-review.html` / `<base>_images/`
+2. `<base>.json` 可 `require`，卡片数与源数据一致，image 路径全部真实存在、无重复，图片提示词完整（无 `undefined`）
+3. 浏览器打开 `<base>-review.html`：空状态引导正常 → **上传 `<base>.json` 后**所有卡片渲染、所有图片加载成功（无裂图）、无控制台报错
+4. 编辑流程可用：增删图片、设为默认、改字段、导出（模态框内容与页面数据一致、字段序正确）
+5. **必须连接用户浏览器（9700 端口）验证，不要只在自己的新浏览器实例验证**——localStorage 按源隔离，新建实例看不到用户环境里的草稿/历史状态；用户浏览器中的旧草稿（旧目录前缀）是裂图头号元凶，验证时清理 `<base>_draft`（草稿不自动加载，但恢复时仍会迁移旧前缀）
 6. 移动端验收按步骤 4.5 的 CDP 视口模拟清单逐项断言（375×812 手机视口 + 1440×900 桌面还原）
 
 ## 注意
 
-- 只在用户明确要求时执行；不修改原始 JSON 源数据（除非用户要求）
-- 图片目录命名与 HTML/JS 引用必须全程一致，避免 `images/` 与 `<base>_images/` 混用
+- 只在用户明确要求时执行；源 `<base>.json` 只在用户要求的构建步骤（build.js 写回）中更新，其余情况不擅自修改
+- 图片目录命名与 HTML/JSON 引用必须全程一致，避免 `images/` 与 `<base>_images/` 混用
 - 图片文件用 ASCII 文件名（拼音/英文），避免跨平台问题
 - **重命名/改前缀时必须全局搜索旧前缀**（不只替换 src 属性）：JS 里 `replace(/^images\//, "")` 这类正则、HTML 文本标签、README 示例、localStorage 草稿都是独立引用点，只替换数据字段会导致显示层路径残留（文件名标签/toast 显示完整路径）——改完后用 `(?<!testdata_)images/` 这类负向断言正则扫描确认无残留
-- **GitHub 托管项目**：浏览器 `file://` 无法直接写项目文件，编辑工具的保存方式是「导出/复制内容 → 手动粘贴覆盖源文件」。复制实现用 `navigator.clipboard.writeText` 优先、`execCommand('copy')` 兜底（file:// 下 Clipboard API 可能受限），模态框自动全选方便 Ctrl+C
+- **GitHub 托管项目**：浏览器 `file://` 无法直接写项目文件，审核工具保存方式是「导出 JSON 下载 → 手动覆盖源文件」（或模态框复制内容粘贴）。复制实现用 `navigator.clipboard.writeText` 优先、`execCommand('copy')` 兜底（file:// 下 Clipboard API 可能受限），模态框自动全选方便 Ctrl+C
 - 模态框等浮层若用 `hidden` 属性控制显隐，注意显式 `display:flex` 会覆盖 `hidden` 的 `display:none`，需补 `.modal-mask[hidden]{display:none}`
+- **上传 JSON 加载模式**：`<input type=file accept=".json">` + FileReader 读取；上传数据需 `normalizeCard` 规范化（字段序重建 + image 数组化 + 缺失字段补空 + 未知字段保留尾部）；无数据时显示空状态引导而非报错
+- **审核页数据一律不自动加载（用户明确要求，勿改回）**：打开始终空状态；localStorage 草稿**不自动载入**，只在空状态显示「恢复上次草稿」入口（含张数），点击才加载（`appliedDraft` 标记草稿来源）；上传后「恢复原始数据」回上传时数据，草稿来源时「清除草稿」回空态；`original` 仅在上传时设置（草稿恢复不设置，避免误恢复）
+- **测试脚本避免 PowerShell `-replace` 改中文注释**：会破坏 UTF-8 编码导致语句被注释吞掉（真实事故：blur() 调用被并进注释，测试假失败），直接重写文件

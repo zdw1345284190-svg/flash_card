@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>闪卡数据展示与编辑工具</title>
+<title>闪卡数据审核工具</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -47,6 +47,13 @@ body{
 .btn.ghost:hover{color:var(--accent); background:var(--accent-soft)}
 .btn.tiny{padding:2px 8px; font-size:12px; border-radius:5px}
 .danger-text{color:var(--danger)}
+/* 上/下一张导航按钮（明显胶囊样式，用户要求按钮显眼） */
+.nav-btn{border-radius:16px; padding:6px 14px; font-weight:600; border-color:var(--accent); color:var(--accent-dark); background:var(--accent-soft)}
+.nav-btn:hover{background:var(--accent); color:#fff}
+/* 上传 JSON：按钮样式的 label + 隐藏 file input */
+label.btn[for]{display:inline-block; text-align:center; user-select:none}
+label.btn[for]:hover{border-color:var(--accent); color:var(--accent-dark)}
+#jsonPicker{display:none}
 
 /* ===== 草稿提示条 ===== */
 #draftBar{
@@ -83,11 +90,23 @@ body{
 .card-item .imgs::before{content:"图片 x "; color:var(--faint)}
 
 /* 右侧编辑区 */
-#editor{flex:1; overflow-y:auto; padding:16px 20px 48px; min-width:0}
+#editor{flex:1; overflow-y:auto; padding:16px 20px 48px; min-width:0; position:relative}
 .editor-head{display:flex; align-items:baseline; gap:10px; margin-bottom:14px; flex-wrap:wrap}
 .editor-head h1{font-size:18px}
 .chip{font-size:12px; color:var(--accent-dark); background:var(--accent-soft); padding:2px 10px; border-radius:12px}
 .chip-none{font-size:12px; color:var(--faint); background:#eef0f4; padding:2px 10px; border-radius:12px}
+
+/* 空状态（未上传 JSON 时覆盖编辑器） */
+#emptyState{
+  position:absolute; inset:0; z-index:10; background:var(--bg);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  text-align:center; padding:24px;
+}
+#emptyState[hidden]{display:none}
+#emptyState .big{font-size:18px; font-weight:600}
+#emptyState .tip{font-size:13px; color:var(--muted); max-width:480px; line-height:1.8}
+#emptyState .tip code{background:var(--accent-soft); color:var(--accent-dark); padding:1px 5px; border-radius:4px; font-size:12px}
+#emptyState .btn{padding:10px 22px; font-size:14px}
 
 .block{
   background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
@@ -107,6 +126,19 @@ body{
 .img-name{font-size:12px; color:var(--muted); padding:6px 8px 2px; word-break:break-all}
 .img-ops{padding:0 8px 8px; display:flex; gap:6px; flex-wrap:wrap}
 .img-empty{border:1px dashed var(--border); border-radius:8px; color:var(--faint); padding:26px; text-align:center; font-size:13px}
+
+/* 对仗关联 pair（只读展示，完整显示 + 点击跳转） */
+.pair-display{display:flex; align-items:flex-start; gap:6px; min-height:32px}
+.pair-link{
+  display:inline-flex; align-items:center; gap:2px;
+  padding:4px 12px; border:1px solid var(--accent); border-radius:16px;
+  background:var(--accent-soft); color:var(--accent-dark);
+  font-size:13px; font-weight:600; cursor:pointer; text-decoration:none;
+  word-break:break-all; line-height:1.5; max-width:100%;
+  transition:background .12s, color .12s;
+}
+.pair-link:hover{background:var(--accent); color:#fff}
+.pair-none{font-size:13px; color:var(--faint)}
 
 /* 图片操作行 */
 .img-actions{display:flex; align-items:center; gap:10px; margin-top:12px; flex-wrap:wrap}
@@ -178,6 +210,7 @@ body{
   .card-item .ct{font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .card-item .imgs{font-size:10px}
   .card-item.active{border-color:var(--accent); border-width:1px}
+  #emptyState{position:static; flex:1; min-height:0}
   .block{padding:12px}
   .editor-head h1{font-size:16px}
   .img-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px}
@@ -186,9 +219,6 @@ body{
   .modal-actions{flex-wrap:wrap}
   #exportText{margin:10px; font-size:12px}
 }
-
-/* 加载失败提示 */
-#loadError{display:none; margin:14px 16px; padding:12px 16px; background:var(--danger-soft); border:1px solid #e5b8b2; border-radius:var(--radius); color:var(--danger); font-size:13px}
 
 /* Toast */
 #toast{
@@ -199,7 +229,7 @@ body{
 }
 #toast.show{opacity:1; transform:translate(-50%,0)}
 
-/* 导出/复制模态框 */
+/* 导出模态框 */
 .modal-mask{
   position:fixed; inset:0; background:rgba(20,30,50,.45); z-index:200;
   display:flex; align-items:center; justify-content:center; padding:24px;
@@ -236,31 +266,31 @@ body{
 
 <header id="toolbar">
   <div class="brand">
-    <strong>闪卡数据展示与编辑工具</strong>
-    <span class="sub">data/__BASE__.js · 笠翁对韵 · 编辑后可导出替换原文件</span>
+    <strong>闪卡数据审核工具</strong>
+    <span class="sub">上传 __BASE__.json 审核 · 编辑后导出覆盖 data/__BASE__.json</span>
   </div>
   <div class="actions">
+    <label class="btn primary" for="jsonPicker">上传 JSON</label>
+    <input type="file" id="jsonPicker" accept=".json,application/json" hidden>
     <button id="btnAddCard" class="btn">+ 新增卡片</button>
     <button id="btnDelCard" class="btn danger">删除当前卡片</button>
     <span class="sep"></span>
-    <button id="btnCopyJs" class="btn">复制 __BASE__.js</button>
-    <button id="btnExportJs" class="btn primary">导出 __BASE__.js</button>
     <button id="btnExportJson" class="btn primary">导出 JSON</button>
   </div>
 </header>
 
-<!-- 复制/导出模态框：展示最新 __BASE__.js 完整内容，供手动复制覆盖 GitHub 上的源文件 -->
+<!-- 导出模态框：展示最新 JSON 完整内容，供下载/复制覆盖源文件 -->
 <div id="exportModal" class="modal-mask" hidden>
   <div class="modal">
     <div class="modal-head">
-      <strong>__BASE__.js 最新内容</strong>
+      <strong>__BASE__.json 最新内容</strong>
       <button id="btnModalClose" class="btn ghost tiny">关闭 ✕</button>
     </div>
-    <p class="modal-tip">已生成最新卡片数据。请将下方内容<b>全选复制</b>，粘贴覆盖 GitHub 仓库中 <code>data/__BASE__.js</code> 的全文（浏览器无法直接写项目文件）。</p>
+    <p class="modal-tip">审核完成。请<b>下载</b> __BASE__.json 覆盖项目 <code>data/__BASE__.json</code>（或全选复制内容粘贴覆盖，浏览器无法直接写项目文件）。</p>
     <textarea id="exportText" readonly spellcheck="false"></textarea>
     <div class="modal-actions">
-      <button id="btnModalCopy" class="btn primary">复制内容</button>
-      <button id="btnModalDownload" class="btn">下载 __BASE__.js</button>
+      <button id="btnModalCopy" class="btn">复制内容</button>
+      <button id="btnModalDownload" class="btn primary">下载 __BASE__.json</button>
       <span class="modal-size" id="exportSize"></span>
     </div>
   </div>
@@ -271,8 +301,6 @@ body{
   <button id="btnDraftRestore" class="btn ghost tiny">恢复原始数据</button>
 </div>
 
-<div id="loadError">加载失败：未找到 data/__BASE__.js，请确认文件位于项目 data/ 目录。</div>
-
 <div id="main">
   <aside id="side">
     <div class="side-head"><span>卡片列表<span class="kb-hint">↑↓ 切换</span></span> <span id="cardCount" class="count"></span></div>
@@ -280,7 +308,24 @@ body{
   </aside>
 
   <section id="editor">
+    <div id="emptyState">
+      <div class="big">请上传 JSON 数据开始审核</div>
+      <div class="tip">
+        点击下方按钮选择 <code>data/__BASE__.json</code>（字段：<code>image</code> / <code>图片提示词</code> / <code>keyword</code> / <code>logic</code> / <code>source</code> / <code>analysis</code> / <code>category</code>）。
+        审核完成后点「导出 JSON」下载覆盖源文件。
+      </div>
+      <label class="btn primary" for="jsonPicker">选择 JSON 文件</label>
+      <div id="draftHint" hidden>
+        <div class="tip">检测到上次未导出的草稿。</div>
+        <button id="btnLoadDraft" class="btn">恢复上次草稿</button>
+      </div>
+    </div>
+
     <div class="editor-head">
+      <div class="nav-btns">
+        <button id="btnPrev" class="btn nav-btn" type="button" title="上一张 (↑)">◀ 上一张</button>
+        <button id="btnNext" class="btn nav-btn" type="button" title="下一张 (↓)">下一张 ▶</button>
+      </div>
       <h1 id="editorTitle">卡片 1 / 5</h1>
       <span id="editorCategory" class="chip"></span>
     </div>
@@ -329,6 +374,10 @@ body{
           <label for="f_category">category</label>
           <input id="f_category" type="text" data-field="category">
         </div>
+        <div class="field full">
+          <label>对仗关联 <code>pair</code> <span class="hint" style="font-weight:400">自动生成，点击跳转</span></label>
+          <div id="pairDisplay" class="pair-display"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -336,7 +385,6 @@ body{
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="data/__BASE__.js"></script>
 <script>
 (function () {
   "use strict";
@@ -350,15 +398,29 @@ body{
     });
   }
 
-  if (typeof __BASE__ === "undefined" || !Array.isArray(__BASE__)) {
-    document.getElementById("loadError").style.display = "block";
-    return;
+  // 字段顺序：image -> 图片提示词 -> keyword -> logic -> source -> analysis -> category
+  var SCHEMA = ["image", "图片提示词", "keyword", "logic", "source", "analysis", "category"];
+  // 上传数据规范化：按 schema 字段序重建对象，image 数组化，缺失字段补空值，未知字段保留在尾部
+  function normalizeCard(c) {
+    if (!c || typeof c !== "object") c = {};
+    var rest = {};
+    Object.keys(c).forEach(function (k) {
+      if (SCHEMA.indexOf(k) === -1) rest[k] = c[k];
+    });
+    var out = {};
+    SCHEMA.forEach(function (k) {
+      if (k === "image") out.image = Array.isArray(c.image) ? c.image.slice() : [];
+      else out[k] = c[k] != null ? c[k] : "";
+    });
+    Object.keys(rest).forEach(function (k) { out[k] = rest[k]; });
+    return out;
   }
 
-  var original = JSON.parse(JSON.stringify(__BASE__));
-  var cards = null;
+  var original = null;   // 最近一次上传的原始数据（供恢复）；仅上传时设置
+  var appliedDraft = false; // 当前数据是否来自草稿恢复
+  var cards = null;      // 当前数据；null = 未加载任何数据
   var currentIndex = 0;
-  var libFiles = []; // [{name, url}]
+  var libFiles = [];     // [{name, url}]
   var toastTimer = null;
 
   function $(id) { return document.getElementById(id); }
@@ -367,44 +429,6 @@ body{
     if (cls) e.className = cls;
     if (text !== undefined) e.textContent = text;
     return e;
-  }
-
-  /* ========== 草稿存取 ========== */
-  function loadDraft() {
-    var restored = false;
-    try {
-      var raw = localStorage.getItem(LS_KEY);
-      if (raw) {
-        var parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // 兼容旧版草稿：图片目录曾命名为 images/，现统一为 __BASE___images/
-          parsed.forEach(function (c) {
-            if (Array.isArray(c.image)) {
-              c.image = c.image.map(function (p) {
-                return String(p).replace(/^images\//, "__BASE___images/");
-              });
-            }
-          });
-          cards = parsed;
-          restored = true;
-        }
-      }
-    } catch (e) { /* 草稿损坏则忽略 */ }
-    if (!cards) cards = JSON.parse(JSON.stringify(original));
-    if (restored) $("draftBar").hidden = false;
-  }
-
-  function autosave() {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(cards)); } catch (e) { /* 忽略配额错误 */ }
-  }
-
-  function restoreOriginal() {
-    try { localStorage.removeItem(LS_KEY); } catch (e) {}
-    cards = JSON.parse(JSON.stringify(original));
-    currentIndex = 0;
-    $("draftBar").hidden = true;
-    renderAll();
-    toast("已恢复原始数据，草稿已清除");
   }
 
   /* ========== Toast ========== */
@@ -416,17 +440,104 @@ body{
     toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2200);
   }
 
+  /* ========== 数据加载（上传 JSON） ========== */
+  $("jsonPicker").addEventListener("change", function () {
+    var f = this.files[0];
+    this.value = "";
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var data = JSON.parse(reader.result);
+        if (!Array.isArray(data) || !data.length) throw new Error("empty");
+        cards = data.map(normalizeCard);
+        original = JSON.parse(JSON.stringify(cards));
+        appliedDraft = false;
+        currentIndex = 0;
+        try { localStorage.removeItem(LS_KEY); } catch (e) {}
+        autosave();
+        $("draftBar").hidden = true;
+        $("draftHint").hidden = true;
+        renderAll();
+        toast("已加载 " + cards.length + " 张卡片：" + f.name);
+      } catch (e) {
+        toast("JSON 解析失败，请检查文件格式");
+      }
+    };
+    reader.readAsText(f, "utf-8");
+  });
+
+  /* ========== 草稿存取（草稿不自动加载，需用户点击「恢复上次草稿」） ========== */
+  // 探测草稿是否存在（不加载进 cards）
+  function peekDraft() {
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length ? parsed : null;
+    } catch (e) { return null; }
+  }
+
+  // 把草稿真正载入（点击恢复按钮时调用）
+  function applyDraft() {
+    var parsed = peekDraft();
+    if (!parsed) return false;
+    // 兼容旧版草稿：图片目录曾命名为 images/，现统一为 __BASE___images/
+    parsed = parsed.map(function (c) {
+      c = normalizeCard(c);
+      if (Array.isArray(c.image)) {
+        c.image = c.image.map(function (p) {
+          return String(p).replace(/^images\//, "__BASE___images/");
+        });
+      }
+      return c;
+    });
+    cards = parsed;
+    original = null;              // 草稿不是上传数据，故不设置原始恢复点
+    appliedDraft = true;
+    currentIndex = 0;
+    $("draftHint").hidden = true;
+    $("draftBar").hidden = false;
+    $("btnDraftRestore").textContent = "清除草稿";
+    renderAll();
+    toast("已恢复上次草稿：" + cards.length + " 张卡片");
+    return true;
+  }
+
+  function autosave() {
+    if (!cards) return;
+    try { localStorage.setItem(LS_KEY, JSON.stringify(cards)); } catch (e) { /* 忽略配额错误 */ }
+  }
+
+  function restoreOriginal() {
+    try { localStorage.removeItem(LS_KEY); } catch (e) {}
+    $("draftBar").hidden = true;
+    $("draftHint").hidden = true;   // 草稿已清除，恢复提示不再显示
+    if (original) {
+      cards = JSON.parse(JSON.stringify(original));
+      appliedDraft = false;
+      currentIndex = 0;
+      toast("已恢复上传时的原始数据");
+    } else {
+      cards = null;
+      appliedDraft = false;
+      currentIndex = 0;
+      toast("已清除草稿");
+    }
+    renderAll();
+  }
+
   /* ========== 渲染：左侧列表 ========== */
   function renderList() {
     var ul = $("cardList");
     ul.innerHTML = "";
+    if (!cards || !cards.length) { $("cardCount").textContent = "0 张"; return; }
     cards.forEach(function (card, i) {
       var li = el("li", "card-item" + (i === currentIndex ? " active" : ""));
       li.appendChild(el("div", "kw", String(card.keyword)));
       li.appendChild(el("div", "ct", String(card.category || "（无分类）")));
       if (card.image && card.image.length) {
-        var im = el("div", "imgs", String(card.image.length));
-        li.appendChild(im);
+        li.appendChild(el("div", "imgs", String(card.image.length)));
       }
       li.onclick = function () {
         currentIndex = i;
@@ -452,17 +563,46 @@ body{
     chip.textContent = card.category || "（未设置分类）";
 
     // 字段回填
-    var fields = ["图片提示词", "keyword", "logic", "source", "analysis", "category"];
-    fields.forEach(function (f) {
+    SCHEMA.forEach(function (f) {
       var input = document.querySelector('[data-field="' + f + '"]');
       if (input) input.value = card[f] != null ? card[f] : "";
     });
+
+    // 对仗关联 pair（只读展示，完整显示 + 点击跳转）
+    var pairDiv = $("pairDisplay");
+    pairDiv.innerHTML = "";
+    if (card.pair) {
+      var link = el("span", "pair-link", "↔ " + card.pair);
+      link.title = "点击跳转到对仗卡片：" + card.pair;
+      link.addEventListener("click", function () {
+        var idx = findCardByPair(card.pair);
+        if (idx >= 0) {
+          currentIndex = idx;
+          renderAll();
+          if (window.innerWidth <= 767) {
+            var ed = document.getElementById("editor");
+            if (ed) ed.scrollTop = 0;
+          }
+        } else {
+          toast("未找到对仗卡片：" + card.pair);
+        }
+      });
+      pairDiv.appendChild(link);
+    } else {
+      pairDiv.appendChild(el("span", "pair-none", "暂无对仗关联"));
+    }
 
     renderImgGrid();
     renderLib();
   }
 
-  function renderAll() { renderList(); renderEditor(); }
+  function renderAll() {
+    var empty = !cards || !cards.length;
+    $("emptyState").hidden = !empty;
+    if (empty) { $("cardList").innerHTML = ""; $("cardCount").textContent = "0 张"; return; }
+    renderList();
+    renderEditor();
+  }
 
   /* ========== 图片网格（当前卡片） ========== */
   function renderImgGrid() {
@@ -563,7 +703,7 @@ body{
   function renderLib() {
     var panel = $("libPanel");
     var grid = $("libGrid");
-    if (!libFiles.length) { panel.hidden = true; return; }
+    if (!cards || !libFiles.length) { panel.hidden = true; return; }
     panel.hidden = false;
     $("libCount").textContent = "(" + libFiles.length + " 张)";
     grid.innerHTML = "";
@@ -596,6 +736,7 @@ body{
 
   /* ========== 字段编辑 ========== */
   $("editor").addEventListener("input", function (e) {
+    if (!cards) return;
     var f = e.target.getAttribute("data-field");
     if (!f) return;
     var card = cards[currentIndex];
@@ -608,6 +749,7 @@ body{
 
   /* ========== 新增 / 删除卡片 ========== */
   $("btnAddCard").addEventListener("click", function () {
+    if (!cards) { toast("请先上传 JSON 数据"); return; }
     cards.push({
       "image": [],
       "图片提示词": "",
@@ -624,6 +766,7 @@ body{
   });
 
   $("btnDelCard").addEventListener("click", function () {
+    if (!cards) { toast("请先上传 JSON 数据"); return; }
     if (cards.length <= 1) { toast("至少保留一张卡片"); return; }
     cards.splice(currentIndex, 1);
     if (currentIndex >= cards.length) currentIndex = cards.length - 1;
@@ -632,44 +775,7 @@ body{
     toast("已删除当前卡片");
   });
 
-  /* ========== 导出 ========== */
-  // 字符串转 JSON 双引号字面量（含转义），随后恢复中文
-  function escapeStr(s) {
-    return restoreUnicode(JSON.stringify(String(s)));
-  }
-
-  // 数组按现有 __BASE__.js 风格内联：["a", "b", "c"]
-  function inlineArray(arr) {
-    return "[" + arr.map(escapeStr).join(", ") + "]";
-  }
-
-  // 单个卡片，按 schema 字段顺序、2 空格缩进序列化（字段名/值均用双引号）
-  function stringifyCard2(card, baseIndent) {
-    var keys = Object.keys(card);
-    var lines = [baseIndent + "{"];
-    keys.forEach(function (k, i) {
-      var comma = i < keys.length - 1 ? "," : "";
-      var v = card[k];
-      var val = Array.isArray(v) ? inlineArray(v) : escapeStr(v);
-      lines.push(baseIndent + '  "' + k + '": ' + val + comma);
-    });
-    lines.push(baseIndent + "}");
-    return lines.join("\n");
-  }
-
-  var JS_HEADER = [
-    "// 笠翁对韵专属闪卡测试数据",
-    "// 卡片正面为图片页(image 数组，可含多张图)，背面为信息页(keyword/logic/source/analysis/category)",
-    "// image 为图片路径数组，供 HTML 渲染时轮播/选择使用"
-  ].join("\n");
-
-  function serializeJs(cardsArr) {
-    var body = cardsArr.map(function (c) {
-      return stringifyCard2(c, "  ");
-    }).join(",\n");
-    return JS_HEADER + "\nconst __BASE__ = [\n" + body + "\n];\n";
-  }
-
+  /* ========== 导出 JSON ========== */
   function serializeJson(cardsArr) {
     return restoreUnicode(JSON.stringify(cardsArr, null, 2)) + "\n";
   }
@@ -685,22 +791,13 @@ body{
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
-  $("btnExportJs").addEventListener("click", function () {
-    download("__BASE__.js", serializeJs(cards));
-    toast("已下载 __BASE__.js，请替换 data/ 目录下的原文件");
-  });
-
-  $("btnExportJson").addEventListener("click", function () {
-    download("__BASE__.json", serializeJson(cards));
-    toast("已下载 __BASE__.json");
-  });
-
-  /* ========== 复制模态框：手动覆盖 GitHub 上的 __BASE__.js ========== */
+  /* ========== 导出模态框 ========== */
   var exportModal = $("exportModal");
   var exportText = $("exportText");
 
   function openExportModal() {
-    var content = serializeJs(cards);
+    if (!cards || !cards.length) { toast("请先上传 JSON 数据"); return; }
+    var content = serializeJson(cards);
     exportText.value = content;
     $("exportSize").textContent = content.length + " 字符 / " + (content.split("\n").length) + " 行";
     exportModal.hidden = false;
@@ -728,14 +825,14 @@ body{
       exportText.select();
       ok = document.execCommand && document.execCommand("copy");
     }
-    toast(ok ? "内容已复制到剪贴板，请粘贴覆盖 GitHub 仓库中的 data/__BASE__.js" : "复制失败，请手动全选复制（Ctrl+A / Ctrl+C）");
+    toast(ok ? "内容已复制到剪贴板，请粘贴覆盖 data/__BASE__.json" : "复制失败，请手动全选复制（Ctrl+A / Ctrl+C）");
   }
 
-  $("btnCopyJs").addEventListener("click", openExportModal);
+  $("btnExportJson").addEventListener("click", openExportModal);
   $("btnModalCopy").addEventListener("click", copyExportText);
   $("btnModalDownload").addEventListener("click", function () {
-    download("__BASE__.js", exportText.value);
-    toast("已下载 __BASE__.js");
+    download("__BASE__.json", exportText.value);
+    toast("已下载 __BASE__.json，请覆盖 data/ 目录下的原文件");
   });
   $("btnModalClose").addEventListener("click", closeExportModal);
   exportModal.addEventListener("click", function (e) {
@@ -743,6 +840,13 @@ body{
   });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !exportModal.hidden) closeExportModal();
+  });
+
+  $("btnLoadDraft").addEventListener("click", function () {
+    if (!applyDraft()) {
+      $("draftHint").hidden = true;
+      toast("未找到可恢复的草稿");
+    }
   });
 
   $("btnDraftRestore").addEventListener("click", restoreOriginal);
@@ -770,24 +874,53 @@ body{
     }
   });
 
-  /* ========== 键盘切换卡片（↑/↓，输入框内不触发） ========== */
-  document.addEventListener("keydown", function (e) {
-    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
-    var el = document.activeElement;
-    var tag = el ? el.tagName : "";
-    if (tag === "INPUT" || tag === "TEXTAREA" ||
-        (el && el.getAttribute && el.getAttribute("contenteditable") === "true")) return;
-    var next = currentIndex + (e.key === "ArrowDown" ? 1 : -1);
+  /* ========== 导航：上/下一张按钮 + findCardByPair ========== */
+  function findCardByPair(pairId) {
+    if (!cards) return -1;
+    for (var i = 0; i < cards.length; i++) {
+      var c = cards[i];
+      if ((c.category + "·" + c.keyword) === pairId) return i;
+    }
+    return -1;
+  }
+
+  function navigateCard(delta) {
+    if (!cards || !cards.length) return;
+    var next = currentIndex + delta;
     if (next < 0 || next >= cards.length) return;
-    e.preventDefault();
     currentIndex = next;
     renderAll();
     var items = document.querySelectorAll("#cardList .card-item");
     if (items[next]) items[next].scrollIntoView({ block: "nearest", inline: "nearest" });
+    /* 手机端切卡后滚回编辑器顶部 */
+    if (window.innerWidth <= 767) {
+      var ed = document.getElementById("editor");
+      if (ed) ed.scrollTop = 0;
+    }
+  }
+
+  $("btnPrev").addEventListener("click", function () { navigateCard(-1); });
+  $("btnNext").addEventListener("click", function () { navigateCard(1); });
+
+  /* ========== 键盘切换卡片（↑/↓，输入框内不触发） ========== */
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    if (!cards || !cards.length) return;
+    var el = document.activeElement;
+    var tag = el ? el.tagName : "";
+    if (tag === "INPUT" || tag === "TEXTAREA" ||
+        (el && el.getAttribute && el.getAttribute("contenteditable") === "true")) return;
+    e.preventDefault();
+    navigateCard(e.key === "ArrowDown" ? 1 : -1);
   });
 
-  /* ========== 启动 ========== */
-  loadDraft();
+  /* ========== 启动：空状态 + 草稿提示（草稿不自动加载，需点击） ========== */
+  // 页面打开始终为空状态；若存在草稿，仅在空状态显示「恢复上次草稿」入口
+  if (peekDraft()) {
+    var n = peekDraft().length;
+    $("draftHint").querySelector(".tip").textContent = "检测到上次未导出的草稿（" + n + " 张卡片）。";
+    $("draftHint").hidden = false;
+  }
   renderAll();
 })();
 </script>

@@ -619,10 +619,7 @@ label.btn[for]:hover{border-color:var(--accent); color:var(--accent-dark)}
     card.image.forEach(function (path, i) {
       var item = el("div", "img-item" + (i === 0 ? " is-default" : ""));
       var thumbWrap = el("div", "thumb");
-      var img = el("img");
-      img.src = path;
-      img.alt = path;
-      img.onerror = function () { img.classList.add("broken"); };
+      var img = makeImg(path);
       thumbWrap.appendChild(img);
       if (i === 0) thumbWrap.appendChild(el("span", "default-badge", "默认"));
 
@@ -651,7 +648,7 @@ label.btn[for]:hover{border-color:var(--accent); color:var(--accent-dark)}
     autosave();
     renderImgGrid();
     renderLib();
-    toast("已将 " + item.replace(/^__BASE___images\//, "") + " 设为默认图片");
+    toast("已将 " + shortName(item) + " 设为默认图片");
   }
 
   function removeImage(i) {
@@ -660,22 +657,47 @@ label.btn[for]:hover{border-color:var(--accent); color:var(--accent-dark)}
     autosave();
     renderImgGrid();
     renderLib();
-    toast("已删除 " + removed.replace(/^__BASE___images\//, ""));
+    toast("已删除 " + shortName(removed));
   }
 
   function addImage(path) {
     if (!path) return;
-    if (path.indexOf("__BASE___images/") !== 0) path = "__BASE___images/" + path.replace(/^\.?\//, "");
+    var prefix = "__BASE___images/";
+    // 纯文件名 → 自动补前缀；已含目录结构（/ 或 \）→ 原样使用（兼容 testdata_images/x.png 等真实相对路径）
+    if (path.indexOf("/") === -1 && path.indexOf("\\") === -1)
+      path = prefix + path.replace(/^\.?\//, "");
     var card = cards[currentIndex];
     if (card.image.indexOf(path) !== -1) {
-      toast("该图片已在卡片中：" + path.replace(/^__BASE___images\//, ""));
+      toast("该图片已在卡片中：" + shortName(path));
       return;
     }
     card.image.push(path);
     autosave();
     renderImgGrid();
     renderLib();
-    toast("已添加 " + path.replace(/^__BASE___images\//, ""));
+    toast("已添加 " + shortName(path));
+  }
+
+  function shortName(path) {
+    return String(path).replace(/^__BASE___images\//, "");
+  }
+
+  /* ========== 图片路径回退加载 ========== */
+  // review.html 在 data/ 子目录时，数据里的相对路径（如 testdata_images/x.png、<base>_images/x.png）
+  // 相对 HTML 解析不到，需再试 ../ 前缀（图片部署在项目根的场景）
+  function makeImg(path) {
+    var img = el("img");
+    var candidates = [path];
+    if (path.indexOf("/") !== 0) candidates.push("../" + path);
+    var i = 0;
+    function tryNext() {
+      if (i >= candidates.length) { img.classList.add("broken"); return; }
+      img.src = candidates[i++];
+    }
+    img.onerror = function () { tryNext(); };
+    img.alt = path;
+    tryNext();
+    return img;
   }
 
   /* ========== 图片库（选择目录后枚举） ========== */
@@ -686,7 +708,7 @@ label.btn[for]:hover{border-color:var(--accent); color:var(--accent-dark)}
     libFiles.forEach(function (f) { if (f.url) URL.revokeObjectURL(f.url); });
     libFiles = files
       .filter(function (f) { return /\.(png|jpe?g)$/i.test(f.name); })
-      .map(function (f) { return { name: f.name, url: URL.createObjectURL(f) }; })
+      .map(function (f) { return { name: f.name, url: URL.createObjectURL(f), file: f }; })
       .sort(function (a, b) { return a.name < b.name ? -1 : 1; });
     dirPicker.value = ""; // 允许再次选择同一目录
     renderLib();

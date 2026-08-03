@@ -1,6 +1,6 @@
 ---
 name: doubao-flashcard-generator
-description: 闪卡图片生成与数据编辑工作流。输入一个闪卡 JSON 数据文件（如 data_260802.json / testdata.json），自动完成：为每张卡生成"图片提示词"→ 通过调试端口 9700 的浏览器（豆包）逐张生成并下载图片到 <base>_images/ 目录 → 把「图片提示词 + image 数组」直接写回 <base>.json → 生成 <base>-review.html（审核工具：上传 JSON 加载，样式同旧版 data_editor.html）。Triggers: 闪卡图片、生成图片、豆包生成、flashcard、卡片配图、data.html、review、testdata、260802、笠翁对韵、图片提示词。
+description: 闪卡图片生成与数据编辑工作流。输入一个闪卡 JSON 数据文件（如 data_260802.json / testdata.json），自动完成：为每张卡生成"图片提示词"→ 通过调试端口 9700 的浏览器（豆包）逐张生成并下载图片到 <base>_images/ 目录 → 把「图片提示词 + image 数组」直接写回 <base>.json → 生成 <base>-review.html（审核工具：上传 JSON 加载，含上/下一张导航与 pair 对仗关联只读展示，样式同旧版 data_editor.html）。Triggers: 闪卡图片、生成图片、豆包生成、flashcard、卡片配图、data.html、review、testdata、260802、笠翁对韵、图片提示词、pair显示、上一张、导航按钮。
 ---
 
 # 闪卡图片生成与数据编辑工作流（Doubao Flashcard Generator）
@@ -112,12 +112,15 @@ build.js 职责（参考 `work_data260802/build.js` 按需修改 BASE）：
 **数据流（与旧版 `data_editor.html` 的关键区别）**：
 - **不再 `<script src="data/xxx.js">` 加载**——页面初始为空状态，点「上传 JSON」（隐藏 `<input type=file accept=".json">` + FileReader）读取任意 JSON 文件
 - 上传后 `normalizeCard` 按 schema 字段序重建对象（image 数组化、缺失字段补空、未知字段保留尾部），并写入 localStorage 草稿
+- **pair 等未知字段自动保留**：`pair` 不在 SCHEMA（详见工具能力），normalizeCard 的"未知字段保留尾部"确保上传/导出后 pair 不丢；导出 JSON 与页面数据一致
 - **数据一律不自动加载**：页面打开始终为空状态（「选择 JSON 文件」引导）；若存在草稿，空状态额外显示「恢复上次草稿」入口（含张数提示），点击才载入草稿（`appliedDraft` 标记，此时「恢复原始数据」= 清除草稿回空态）；上传 JSON 后才进入编辑态
 - 编辑完成点「导出 JSON」：模态框展示最新完整内容（自动全选），可**下载** `<base>.json` 或复制粘贴，手动覆盖项目 `data/<base>.json`（浏览器无法直接写文件系统）
 
 工具保留能力（模板已实现，改动时保持）：
 - 顶部工具栏：上传 JSON、新增卡片、删除当前卡片、导出 JSON
-- 左侧卡片列表（keyword + category + 图数），点击切换；↑/↓ 键盘切换（输入框内不触发）
+- **编辑区头部上/下一张导航按钮**（`btnPrev`/`btnNext`，胶囊样式 `.nav-btn` 青色强调、粗体明显——用户要求"按钮应该明显一点"；点击 `navigateCard(±1)` 切换，列表自动 `scrollIntoView` 定位，手机端切卡后编辑器回顶）
+- 左侧卡片列表（keyword + category + 图数），点击切换；↑/↓ 键盘切换（输入框内不触发，内部走 `navigateCard`）
+- **对仗关联 pair 只读展示**：`pair` 字段（格式 `category·keyword`，如 `卷上·一东·其一·地`）不在 SCHEMA 中（不可编辑，normalizeCard 作为未知字段保留在尾部），编辑区底部 `#pairDisplay` **完整显示** pair 值（`.pair-link` 标签：`↔ 卷上·一东·其一·地`，`word-break:break-all` 长文本自动换行，勿截断为 keyword）；点击跳转到对仗卡（`findCardByPair` 按 `category+"·"+keyword` 匹配，未找到 toast 提示）；无 pair 显示"暂无对仗关联"
 - 右侧编辑区：所有字段可编辑（图片提示词用 textarea）
 - 图片管理：缩略图网格 + 每张图「删除」；第一张图为「默认」徽章；「设为默认」把图移到数组首位（不改 schema）；「选择 `<base>_images/` 目录」按钮用 `input[webkitdirectory]` 枚举目录图片作为图片库，点击追加到 image 数组（已在数组中则禁用），另提供手动输入文件名兜底
 - localStorage 自动保存草稿（key `<base>_draft`）+ 草稿提示条 +「恢复原始数据」按钮（上传后的原始数据 / 仅草稿时清除草稿回空态）

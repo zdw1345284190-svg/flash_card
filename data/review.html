@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>闪卡数据审核 · 笠翁对韵</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f2f4f7; --panel:#ffffff; --border:#dce0e6; --line:#eef0f4;
+  --text:#232a36; --muted:#6b7480; --faint:#9aa3af;
+  --accent:#0e7490; --accent-dark:#0b5f77; --accent-soft:#e3f2f7;
+  --danger:#c0392b; --danger-soft:#fbeae7;
+  --radius:8px; --radius-sm:6px;
+  --shadow:0 1px 2px rgba(20,30,50,.06), 0 4px 12px rgba(20,30,50,.05);
+  --sidebar-w:270px;
+  --font:"Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;
+  --mono:Consolas,"Courier New",monospace;
+}
+html,body{height:100%}
+body{
+  font-family:var(--font); background:var(--bg); color:var(--text);
+  font-size:14px; line-height:1.5;
+  display:flex; flex-direction:column; height:100vh; overflow:hidden;
+  -webkit-text-size-adjust:100%;
+}
+
+/* ===== 顶部工具栏 ===== */
+#toolbar{
+  flex:none; display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:10px 16px; background:var(--panel); border-bottom:1px solid var(--border);
+  flex-wrap:wrap; position:relative; z-index:20;
+}
+#toolbar::before{
+  content:""; position:absolute; top:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg,var(--accent),#3aa8c4,#8fd0de);
+}
+.brand{display:flex; flex-direction:column; line-height:1.3; min-width:0}
+.brand strong{font-size:16px; letter-spacing:.5px}
+.brand .sub{font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.stats{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.stat{
+  background:#f6f8fa; border:1px solid var(--border); border-radius:20px;
+  padding:2px 12px; font-size:12px; color:var(--muted); font-weight:600;
+}
+.stat strong{color:var(--accent-dark); font-size:13px}
+.dirty{
+  font-size:11px; color:#b45309; background:#fef3c7; border:1px solid #fde68a;
+  padding:2px 9px; border-radius:20px; font-weight:600;
+}
+.dirty[hidden]{display:none}
+.actions{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.sep{width:1px; height:22px; background:var(--border); margin:0 2px}
+
+.btn{
+  appearance:none; border:1px solid var(--border); background:var(--panel); color:var(--text);
+  padding:6px 12px; border-radius:var(--radius-sm); font-size:13px; cursor:pointer;
+  font-family:inherit; white-space:nowrap;
+  transition:background .12s, border-color .12s, color .12s, transform .08s, box-shadow .12s;
+}
+.btn:hover{border-color:var(--accent); color:var(--accent-dark)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+.btn.primary:hover{background:var(--accent-dark); color:#fff}
+.btn.danger{border-color:#e5b8b2; color:var(--danger)}
+.btn.danger:hover{border-color:var(--danger); background:var(--danger-soft)}
+.btn.ghost{border-color:transparent; background:transparent; color:var(--muted)}
+.btn.ghost:hover{color:var(--accent); background:var(--accent-soft)}
+.btn.tiny{padding:2px 8px; font-size:12px; border-radius:5px}
+.btn.icon-btn{display:none; padding:4px 9px; font-size:16px; line-height:1}
+.btn.icon-btn:hover{border-color:var(--border); background:#f6f8fa; color:var(--text)}
+
+/* ===== 草稿 / 错误提示条 ===== */
+#draftBar, #loadError{
+  flex:none; display:flex; align-items:center; justify-content:center; gap:10px;
+  padding:7px 16px; font-size:13px; border-bottom:1px solid;
+}
+#draftBar{background:#fff7e0; border-color:#ecd9a0; color:#7a5b12}
+#loadError{background:var(--danger-soft); border-color:#e5b8b2; color:var(--danger)}
+#draftBar[hidden], #loadError[hidden]{display:none}
+
+/* ===== 主区域 ===== */
+#main{flex:1; display:flex; min-height:0}
+
+/* 左侧分组列表 */
+#side{
+  flex:none; width:var(--sidebar-w); background:var(--panel); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; min-height:0;
+}
+.side-head{
+  flex:none; padding:10px 12px; border-bottom:1px solid var(--border);
+}
+#searchBox{
+  width:100%; border:1px solid var(--border); border-radius:var(--radius-sm);
+  padding:7px 12px; font-size:13px; font-family:inherit; background:#f8fafb; color:var(--text);
+  transition:border-color .12s, box-shadow .12s, background .12s;
+}
+#searchBox:focus{outline:none; border-color:var(--accent); background:#fff; box-shadow:0 0 0 2px rgba(14,116,144,.12)}
+#cardList{flex:1; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch}
+#sideFoot{
+  flex:none; padding:8px 14px; border-top:1px solid var(--border);
+  font-size:12px; color:var(--faint); text-align:center;
+}
+
+.group-head{
+  display:flex; align-items:center; gap:8px; padding:8px 14px;
+  background:#f6f8fa; border-bottom:1px solid var(--line);
+  font-size:13px; font-weight:700; color:var(--muted); cursor:pointer;
+  user-select:none; position:sticky; top:0; z-index:2;
+  transition:background .12s;
+}
+.group-head:hover{background:#eef2f5}
+.group-head .caret{width:10px; color:var(--faint); transition:transform .15s}
+.group-head .group-name{flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.group-head .count{
+  background:var(--accent-soft); color:var(--accent-dark); border-radius:10px;
+  padding:0 8px; font-size:12px; font-weight:700;
+}
+.group-items{list-style:none; animation:slideIn .18s ease}
+@keyframes slideIn{from{opacity:0; transform:translateY(-4px)} to{opacity:1; transform:none}}
+
+.card-item{
+  position:relative; display:flex; flex-direction:column; gap:2px;
+  padding:9px 30px 9px 14px; border-bottom:1px solid var(--line); cursor:pointer;
+  border-left:3px solid transparent; transition:background .1s, border-color .1s;
+}
+.card-item:hover{background:#f6f8fa}
+.card-item.active{background:var(--accent-soft); border-left-color:var(--accent)}
+.card-item .kw{font-size:15px; font-weight:600; word-break:break-all}
+.card-item .ct{font-size:11.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.card-del{
+  position:absolute; top:50%; right:8px; transform:translateY(-50%);
+  border:none; background:transparent; color:var(--faint); cursor:pointer;
+  font-size:12px; padding:4px 6px; border-radius:5px; opacity:0; line-height:1;
+  transition:opacity .12s, background .12s, color .12s;
+}
+.card-item:hover .card-del{opacity:1}
+.card-del:hover{background:var(--danger-soft); color:var(--danger)}
+.no-match{padding:22px 16px; text-align:center; color:var(--faint); font-size:13px}
+
+/* 右侧编辑区 */
+#editor{flex:1; overflow-y:auto; padding:16px 20px 48px; min-width:0; -webkit-overflow-scrolling:touch}
+.empty-state{
+  max-width:440px; margin:8vh auto 0; text-align:center; color:var(--muted); padding:0 16px;
+  animation:fadeUp .35s ease;
+}
+@keyframes fadeUp{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:none}}
+.empty-state .empty-icon{
+  width:64px; height:64px; margin:0 auto 16px; border-radius:18px;
+  background:linear-gradient(135deg,var(--accent-soft),#f6f8fa);
+  border:1px solid var(--border); color:var(--accent);
+  display:flex; align-items:center; justify-content:center; font-size:28px;
+  box-shadow:var(--shadow);
+}
+.empty-state h2{font-size:18px; color:var(--text); margin-bottom:8px}
+.empty-state p{font-size:13px; line-height:1.8}
+.empty-state code{background:var(--accent-soft); color:var(--accent-dark); padding:1px 6px; border-radius:4px; font-family:var(--mono); font-size:12px}
+.empty-state .empty-sub{color:var(--faint); font-size:12px; margin-top:6px}
+.empty-state .btn{margin:14px 4px 0}
+
+.editor-head{
+  display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;
+}
+.editor-head h1{font-size:18px; flex:1; min-width:140px}
+.chip{
+  font-size:12px; color:var(--accent-dark); background:var(--accent-soft);
+  padding:2px 12px; border-radius:12px; font-weight:600;
+}
+.chip-none{font-size:12px; color:var(--faint); background:#eef0f4; padding:2px 12px; border-radius:12px}
+
+.block{
+  background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+  box-shadow:var(--shadow); padding:14px 16px; margin-bottom:16px;
+  animation:fadeUp .22s ease;
+}
+.block-title{font-size:14px; font-weight:600; margin-bottom:10px; display:flex; align-items:center; gap:8px}
+.block-title .hint{font-size:12px; color:var(--muted); font-weight:400}
+
+/* image 只读徽标 */
+.img-badge{display:flex; flex-direction:column; gap:6px}
+.img-badge-ok{
+  align-self:flex-start; display:inline-flex; align-items:center; gap:6px;
+  background:var(--accent-soft); color:var(--accent-dark); font-size:13px; font-weight:600;
+  border:1px dashed #b7d8e2; border-radius:8px; padding:4px 12px;
+}
+.img-badge-none{
+  align-self:flex-start; display:inline-flex;
+  background:#f6f8fa; color:var(--faint); font-size:13px;
+  border:1px dashed var(--border); border-radius:8px; padding:4px 12px;
+  font-family:var(--mono);
+}
+.img-names{font-size:12px; color:var(--muted); word-break:break-all; line-height:1.7}
+
+/* 字段编辑 */
+.fields{display:grid; grid-template-columns:1fr 1fr; gap:14px 18px}
+.field{display:flex; flex-direction:column; gap:5px}
+.field label{font-size:12px; font-weight:600; color:var(--muted)}
+.field label code{font-weight:400; color:var(--faint); font-family:var(--mono); font-size:11px; margin-left:4px}
+.field input, .field textarea{
+  border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 10px; font-size:13px;
+  font-family:inherit; resize:vertical; line-height:1.5; color:var(--text); background:#fff;
+  transition:border-color .12s, box-shadow .12s;
+}
+.field input:focus, .field textarea:focus{
+  outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(14,116,144,.12);
+}
+.field textarea{min-height:96px}
+.field.full{grid-column:1 / -1}
+
+/* Toast */
+#toast{
+  position:fixed; left:50%; bottom:28px; transform:translate(-50%,16px);
+  background:#26303f; color:#fff; padding:9px 20px; border-radius:8px; font-size:13px;
+  opacity:0; pointer-events:none; transition:opacity .18s, transform .18s; z-index:400;
+  box-shadow:0 6px 18px rgba(0,0,0,.22); max-width:82vw;
+}
+#toast.show{opacity:1; transform:translate(-50%,0)}
+
+/* 遮罩（移动端抽屉） */
+#mask{
+  position:fixed; inset:0; background:rgba(20,30,50,.42); z-index:150;
+  opacity:0; pointer-events:none; transition:opacity .22s;
+}
+#mask.show{opacity:1; pointer-events:auto}
+
+/* 删除确认模态框 */
+.modal-mask{
+  position:fixed; inset:0; background:rgba(20,30,50,.45); z-index:300;
+  display:flex; align-items:center; justify-content:center; padding:24px;
+}
+.modal-mask[hidden]{display:none}
+.modal{
+  background:var(--panel); border-radius:12px; box-shadow:0 12px 40px rgba(20,30,50,.3);
+  width:min(420px, 94vw); overflow:hidden; animation:popIn .18s ease;
+}
+@keyframes popIn{from{opacity:0; transform:scale(.94)} to{opacity:1; transform:none}}
+.modal-head{
+  padding:14px 18px; border-bottom:1px solid var(--border); font-size:15px; font-weight:700;
+}
+.modal-msg{padding:18px; font-size:13.5px; color:var(--text); line-height:1.8; word-break:break-all}
+.modal-msg code{background:var(--accent-soft); color:var(--accent-dark); padding:1px 5px; border-radius:4px; font-family:var(--mono)}
+.modal-actions{
+  display:flex; align-items:center; justify-content:flex-end; gap:8px; padding:12px 18px;
+  border-top:1px solid var(--border); background:#fafbfc;
+}
+
+/* ===== 移动端：抽屉式侧栏 ===== */
+@media (max-width: 860px){
+  #toolbar{padding:8px 10px; gap:8px}
+  .brand .sub{display:none}
+  .brand strong{font-size:15px}
+  .stats .stat{font-size:11px; padding:2px 10px}
+  .btn.icon-btn{display:inline-flex; align-items:center}
+  .actions .sep{display:none}
+  .actions .btn{padding:7px 10px}
+
+  #side{
+    position:fixed; top:0; left:0; bottom:0; width:min(80vw, 300px);
+    z-index:160; box-shadow:0 0 30px rgba(20,30,50,.18);
+    transform:translateX(-102%); transition:transform .24s ease;
+    border-right:1px solid var(--border);
+  }
+  #side.open{transform:translateX(0)}
+  body.kb-open #side{display:none}
+
+  #editor{order:1; padding:12px 12px 40px}
+  .editor-head h1{font-size:16px}
+  .fields{grid-template-columns:1fr; gap:12px}
+  .field.full{grid-column:auto}
+  /* 16px 防止 iOS 聚焦自动缩放 */
+  .field input, .field textarea, #searchBox{font-size:16px}
+  .empty-state{margin-top:6vh}
+}
+</style>
+</head>
+<body>
+
+<header id="toolbar">
+  <button id="btnMenu" class="btn icon-btn" type="button" aria-label="打开卡片列表">☰</button>
+  <div class="brand">
+    <strong>闪卡数据审核</strong>
+    <span class="sub">笠翁对韵 · 数据审校编辑工具</span>
+  </div>
+  <div class="stats">
+    <span id="totalCount" class="stat">共 <strong>0</strong> 张</span>
+    <span id="catCount" class="stat">0 个韵部</span>
+    <span id="dirtyDot" class="dirty" hidden>● 未导出</span>
+  </div>
+  <div class="actions">
+    <button id="btnLoadDefault" class="btn" type="button">加载默认</button>
+    <button id="btnUpload" class="btn" type="button">上传 JSON</button>
+    <span class="sep"></span>
+    <button id="btnExport" class="btn primary" type="button">导出 JSON</button>
+  </div>
+  <input type="file" id="fileInput" accept=".json,application/json" hidden>
+</header>
+
+<div id="draftBar" hidden>
+  <span id="draftMsg">检测到上次未导出的草稿，已恢复。</span>
+  <button id="btnDraftRestore" class="btn ghost tiny" type="button">恢复原始数据</button>
+</div>
+
+<div id="loadError" hidden></div>
+
+<div id="main">
+  <aside id="side">
+    <div class="side-head">
+      <input id="searchBox" type="search" placeholder="搜索关键词 / 韵部 / 原文…" autocomplete="off" spellcheck="false">
+    </div>
+    <div id="cardList"></div>
+    <div id="sideFoot"></div>
+  </aside>
+
+  <section id="editor">
+    <div id="emptyState" class="empty-state">
+      <div class="empty-icon">◈</div>
+      <h2>闪卡数据审核</h2>
+      <p>点击「加载默认」载入 <code>data_凯叔笠翁对韵_260803.json</code>，<br>或「上传 JSON」选择本地数据文件。</p>
+      <p class="empty-sub">也可将 JSON 文件直接拖拽到本窗口。</p>
+      <button id="btnEmptyLoad" class="btn primary" type="button">加载默认数据</button>
+      <button id="btnEmptyUpload" class="btn" type="button">选择文件</button>
+    </div>
+
+    <div id="editorBody" hidden>
+      <div class="editor-head">
+        <h1 id="editorTitle"></h1>
+        <span id="editorCategory" class="chip"></span>
+        <button id="btnDelete" class="btn danger" type="button">删除卡片</button>
+      </div>
+
+      <div class="block">
+        <div class="block-title">图片 image <span class="hint" id="imgHint"></span></div>
+        <div id="imgBadge" class="img-badge"></div>
+      </div>
+
+      <div class="block">
+        <div class="block-title">字段编辑 <span class="hint">修改自动保存草稿，导出后替换原文件</span></div>
+        <div class="fields">
+          <div class="field full">
+            <label for="f_keyword">关键词 <code>keyword</code></label>
+            <input id="f_keyword" type="text" data-field="keyword" placeholder="卡面主标题" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="f_logic">位置逻辑 <code>logic</code></label>
+            <input id="f_logic" type="text" data-field="logic" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="f_source">出处原文 <code>source</code></label>
+            <textarea id="f_source" data-field="source" rows="2"></textarea>
+          </div>
+          <div class="field full">
+            <label for="f_analysis">释义分析 <code>analysis</code></label>
+            <textarea id="f_analysis" data-field="analysis" rows="4"></textarea>
+          </div>
+          <div class="field full">
+            <label for="f_category">所属韵部 <code>category</code></label>
+            <input id="f_category" type="text" data-field="category" list="catDatalist" placeholder="如 卷上·一东" spellcheck="false">
+            <datalist id="catDatalist"></datalist>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="mask"></div>
+
+<div id="confirmModal" class="modal-mask" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head" id="confirmTitle">确认操作</div>
+    <p id="confirmMsg" class="modal-msg"></p>
+    <div class="modal-actions">
+      <button id="btnConfirmCancel" class="btn" type="button">取消</button>
+      <button id="btnConfirmOk" class="btn danger" type="button">确认</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var LS_PREFIX = "review_draft_";
+  var UNICODE_RE = /\\u([0-9a-fA-F]{4})/g;
+
+  var state = {
+    cards: null,          // 当前可编辑数据
+    original: null,       // 载入时快照（脏标记 / 恢复用）
+    filename: "",         // 导出文件名
+    draftKey: null,
+    currentIndex: -1,
+    collapsed: {},        // 分组折叠状态
+    search: ""
+  };
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function deepCopy(o) { return JSON.parse(JSON.stringify(o)); }
+  function restoreUnicode(s) {
+    return s.replace(UNICODE_RE, function (m, g) { return String.fromCharCode(parseInt(g, 16)); });
+  }
+
+  var toastTimer = null;
+  function toast(msg, ms) {
+    var t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, ms || 2200);
+  }
+
+  /* ========== 数据载入 ========== */
+  function applyData(data, filename) {
+    state.cards = data;
+    state.original = deepCopy(data);
+    state.filename = filename || "reviewed.json";
+    state.search = "";
+    $("searchBox").value = "";
+    $("loadError").hidden = true;
+    refreshCategoryDatalist();
+    state.currentIndex = 0;
+    loadDraftIfAny();
+    renderAll();
+  }
+
+  function loadDraftIfAny() {
+    state.draftKey = LS_PREFIX + state.filename;
+    var raw = null;
+    try { raw = localStorage.getItem(state.draftKey); } catch (e) {}
+    if (!raw) { $("draftBar").hidden = true; return; }
+    try {
+      var parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) {
+        state.cards = parsed;
+        if (state.currentIndex >= state.cards.length) state.currentIndex = 0;
+        $("draftMsg").textContent = "检测到「" + state.filename + "」的未导出草稿，已恢复。";
+        $("draftBar").hidden = false;
+        toast("已恢复上次未导出的草稿", 2600);
+      }
+    } catch (e) { /* 草稿损坏则忽略 */ }
+  }
+
+  function restoreOriginal() {
+    state.cards = deepCopy(state.original);
+    $("draftBar").hidden = true;
+    try { localStorage.removeItem(state.draftKey); } catch (e) {}
+    if (state.currentIndex >= state.cards.length) state.currentIndex = 0;
+    renderAll();
+    toast("已恢复原始数据，草稿已清除");
+  }
+
+  function parseJsonText(text, filename) {
+    var data;
+    try { data = JSON.parse(text); }
+    catch (e) { showLoadError("JSON 解析失败：" + e.message); return; }
+    if (!Array.isArray(data)) { showLoadError("数据格式错误：顶层应为 JSON 数组（卡片列表）。"); return; }
+    if (!data.length) { showLoadError("数据为空数组，没有可审核的卡片。"); return; }
+    applyData(data, filename);
+    toast("已加载 " + data.length + " 张卡片");
+  }
+
+  function showLoadError(msg) {
+    $("loadError").textContent = msg;
+    $("loadError").hidden = false;
+    toast(msg, 3600);
+  }
+
+  function loadDefault() {
+    var name = "data_凯叔笠翁对韵_260803.json";
+    var candidates = ["data_凯叔笠翁对韵_260803.json", "./data_凯叔笠翁对韵_260803.json"];
+    var tried = 0;
+    function next() {
+      if (tried >= candidates.length) { fallbackToPicker(); return; }
+      var url = candidates[tried++];
+      fetch(url)
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.text();
+        })
+        .then(function (text) { parseJsonText(text, name); })
+        .catch(next);
+    }
+    function fallbackToPicker() {
+      toast("file:// 协议下浏览器禁止自动读取本地 JSON，请选择目标文件", 3600);
+      $("fileInput").click();
+    }
+    next();
+  }
+
+  /* ========== 分组统计 ========== */
+  function buildGroups() {
+    var map = {}, order = [];
+    state.cards.forEach(function (card, i) {
+      var cat = String(card.category || "").trim() || "未分类";
+      if (!map[cat]) { map[cat] = []; order.push(cat); }
+      map[cat].push(i);
+    });
+    return order.map(function (cat) { return { name: cat, indexes: map[cat] }; });
+  }
+
+  function matchesSearch(card) {
+    var q = state.search;
+    if (!q) return true;
+    return ["keyword", "category", "source", "analysis", "logic"].some(function (f) {
+      return String(card[f] || "").toLowerCase().indexOf(q) !== -1;
+    });
+  }
+
+  /* ========== 左侧列表 ========== */
+  function renderSidebar() {
+    var list = $("cardList");
+    list.innerHTML = "";
+    if (!state.cards) { $("sideFoot").textContent = ""; return; }
+
+    var groups = buildGroups();
+    var totalShown = 0, catShown = 0;
+
+    groups.forEach(function (g) {
+      var shown = g.indexes.filter(function (i) { return matchesSearch(state.cards[i]); });
+      if (!shown.length) return;
+      catShown++;
+      totalShown += shown.length;
+
+      var head = el("div", "group-head");
+      head.appendChild(el("span", "caret", state.collapsed[g.name] ? "▸" : "▾"));
+      head.appendChild(el("span", "group-name", g.name));
+      head.appendChild(el("span", "count", shown.length));
+      head.title = g.name + "（" + g.indexes.length + " 张）";
+      head.addEventListener("click", function () {
+        state.collapsed[g.name] = !state.collapsed[g.name];
+        renderSidebar();
+      });
+      list.appendChild(head);
+
+      if (state.collapsed[g.name]) return;
+      var ul = el("ul", "group-items");
+      shown.forEach(function (i) {
+        var card = state.cards[i];
+        var li = el("li", "card-item" + (i === state.currentIndex ? " active" : ""));
+        li.setAttribute("data-index", i);
+        li.appendChild(el("div", "kw", String(card.keyword || "")));
+        li.appendChild(el("div", "ct", String(card.category || "未分类")));
+        var del = el("button", "card-del", "✕");
+        del.type = "button";
+        del.title = "删除该卡片";
+        del.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          confirmDelete(i);
+        });
+        li.appendChild(del);
+        li.addEventListener("click", function () { selectCard(i); });
+        ul.appendChild(li);
+      });
+      list.appendChild(ul);
+    });
+
+    var foot = $("sideFoot");
+    if (totalShown === 0) {
+      foot.textContent = "没有匹配「" + state.search + "」的卡片";
+      list.appendChild(el("div", "no-match", "换个关键词试试"));
+    } else {
+      foot.textContent = "显示 " + totalShown + " 张 · " + catShown + " 个韵部";
+    }
+  }
+
+  function selectCard(i) {
+    state.currentIndex = i;
+    renderEditor();
+    updateActiveItem();
+    updateStats();
+    closeDrawer();
+    var items = document.querySelectorAll("#cardList .card-item");
+    for (var k = 0; k < items.length; k++) {
+      if (String(items[k].getAttribute("data-index")) === String(i)) {
+        items[k].scrollIntoView({ block: "nearest", inline: "nearest" });
+        break;
+      }
+    }
+  }
+
+  function updateActiveItem() {
+    var items = document.querySelectorAll("#cardList .card-item");
+    for (var k = 0; k < items.length; k++) {
+      var on = String(items[k].getAttribute("data-index")) === String(state.currentIndex);
+      items[k].classList.toggle("active", on);
+    }
+  }
+
+  /* ========== 右侧编辑器 ========== */
+  function renderEditor() {
+    var empty = $("emptyState"), body = $("editorBody");
+    if (!state.cards || state.currentIndex < 0) {
+      empty.hidden = false;
+      body.hidden = true;
+      return;
+    }
+    var card = state.cards[state.currentIndex];
+    empty.hidden = true;
+    body.hidden = false;
+    $("editorTitle").textContent = "卡片 " + (state.currentIndex + 1) + " / " + state.cards.length + " · " + (card.keyword || "");
+
+    var chip = $("editorCategory");
+    chip.className = card.category ? "chip" : "chip-none";
+    chip.textContent = card.category || "未分类";
+
+    ["keyword", "logic", "source", "analysis", "category"].forEach(function (f) {
+      var inp = document.querySelector('[data-field="' + f + '"]');
+      if (inp) inp.value = card[f] != null ? card[f] : "";
+    });
+
+    var arr = Array.isArray(card.image) ? card.image : (card.image != null ? [card.image] : []);
+    $("imgHint").textContent = arr.length
+      ? "已关联 " + arr.length + " 张图片（只读）"
+      : "暂无图片，image 为空数组（只读）";
+    var badge = $("imgBadge");
+    badge.innerHTML = "";
+    if (arr.length) {
+      badge.appendChild(el("span", "img-badge-ok", "图片 ×" + arr.length));
+      badge.appendChild(el("div", "img-names", arr.join("、")));
+    } else {
+      badge.appendChild(el("span", "img-badge-none", "image: []"));
+    }
+  }
+
+  function renderAll() { renderSidebar(); renderEditor(); updateStats(); }
+
+  function updateStats() {
+    if (!state.cards) {
+      $("totalCount").innerHTML = "共 <strong>0</strong> 张";
+      $("catCount").textContent = "0 个韵部";
+      return;
+    }
+    $("totalCount").innerHTML = "共 <strong>" + state.cards.length + "</strong> 张";
+    $("catCount").textContent = buildGroups().length + " 个韵部";
+    markDirty();
+  }
+
+  function refreshCategoryDatalist() {
+    var dl = $("catDatalist");
+    dl.innerHTML = "";
+    var seen = {};
+    state.cards.forEach(function (c) {
+      var cat = String(c.category || "").trim();
+      if (cat && !seen[cat]) {
+        seen[cat] = true;
+        var o = document.createElement("option");
+        o.value = cat;
+        dl.appendChild(o);
+      }
+    });
+  }
+
+  /* ========== 编辑 / 脏标记 / 草稿 ========== */
+  function markDirty() {
+    var dirty = !!(state.original && state.cards &&
+      JSON.stringify(state.cards) !== JSON.stringify(state.original));
+    $("dirtyDot").hidden = !dirty;
+  }
+
+  function autosave() {
+    if (!state.draftKey || !state.cards) return;
+    try { localStorage.setItem(state.draftKey, JSON.stringify(state.cards)); } catch (e) {}
+  }
+
+  /* ========== 删除（带确认） ========== */
+  var confirmCallback = null;
+
+  function openConfirm(title, msg, okText, cb) {
+    $("confirmTitle").textContent = title;
+    $("confirmMsg").textContent = msg;
+    $("btnConfirmOk").textContent = okText;
+    $("confirmModal").hidden = false;
+    confirmCallback = cb;
+  }
+
+  function closeConfirm() {
+    $("confirmModal").hidden = true;
+    confirmCallback = null;
+  }
+
+  $("btnConfirmCancel").addEventListener("click", closeConfirm);
+  $("btnConfirmOk").addEventListener("click", function () {
+    var cb = confirmCallback;
+    closeConfirm();
+    if (cb) cb();
+  });
+  $("confirmModal").addEventListener("click", function (e) {
+    if (e.target === $("confirmModal")) closeConfirm();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !$("confirmModal").hidden) closeConfirm();
+  });
+
+  function confirmDelete(index) {
+    var card = state.cards[index];
+    if (!card) return;
+    openConfirm(
+      "删除卡片",
+      "确定删除卡片「" + (card.keyword || "") + "」吗？删除后会自动保存草稿，点击「导出 JSON」后替换原文件生效。",
+      "删除",
+      function () { deleteCard(index); }
+    );
+  }
+
+  function deleteCard(index) {
+    if (state.cards.length <= 1) { toast("至少保留一张卡片"); return; }
+    var kw = state.cards[index].keyword || "";
+    state.cards.splice(index, 1);
+    if (state.currentIndex === index) {
+      state.currentIndex = Math.min(index, state.cards.length - 1);
+    } else if (state.currentIndex > index) {
+      state.currentIndex--;
+    }
+    autosave();
+    renderAll();
+    toast("已删除「" + kw + "」");
+  }
+
+  /* ========== 导出 ========== */
+  function download(filename, text) {
+    var blob = new Blob([text], { type: "application/json;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  }
+
+  $("btnExport").addEventListener("click", function () {
+    if (!state.cards) { toast("请先加载数据"); return; }
+    var text = restoreUnicode(JSON.stringify(state.cards, null, 2)) + "\n";
+    var name = state.filename.replace(/\.json$/i, "") + ".json";
+    download(name, text);
+    toast("已导出 " + state.cards.length + " 张卡片 → " + name);
+  });
+
+  /* ========== 移动端抽屉 ========== */
+  function closeDrawer() {
+    $("side").classList.remove("open");
+    $("mask").classList.remove("show");
+  }
+
+  $("btnMenu").addEventListener("click", function () {
+    $("side").classList.toggle("open");
+    $("mask").classList.toggle("show", $("side").classList.contains("open"));
+  });
+  $("mask").addEventListener("click", closeDrawer);
+
+  /* ========== 键盘快捷键 ========== */
+  document.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      $("btnExport").click();
+      return;
+    }
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    var t = document.activeElement;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+    if (!state.cards || !state.cards.length) return;
+    var next = state.currentIndex + (e.key === "ArrowDown" ? 1 : -1);
+    if (next < 0 || next >= state.cards.length) return;
+    e.preventDefault();
+    selectCard(next);
+  });
+
+  /* ========== 移动端键盘：聚焦时隐藏抽屉 ========== */
+  document.addEventListener("focusin", function (e) {
+    var t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) {
+      document.body.classList.add("kb-open");
+    }
+  });
+  document.addEventListener("focusout", function (e) {
+    var t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) {
+      document.body.classList.remove("kb-open");
+    }
+  });
+
+  /* ========== 事件绑定 ========== */
+  $("fileInput").addEventListener("change", function () {
+    var f = $("fileInput").files[0];
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function () { parseJsonText(String(reader.result), f.name); };
+    reader.onerror = function () { toast("读取文件失败"); };
+    reader.readAsText(f, "utf-8");
+    $("fileInput").value = "";
+  });
+
+  $("btnUpload").addEventListener("click", function () { $("fileInput").click(); });
+  $("btnLoadDefault").addEventListener("click", loadDefault);
+  $("btnEmptyLoad").addEventListener("click", loadDefault);
+  $("btnEmptyUpload").addEventListener("click", function () { $("fileInput").click(); });
+  $("btnDraftRestore").addEventListener("click", restoreOriginal);
+
+  $("searchBox").addEventListener("input", function () {
+    state.search = this.value.trim().toLowerCase();
+    renderSidebar();
+  });
+
+  $("editorBody").addEventListener("input", function (e) {
+    var f = e.target.getAttribute("data-field");
+    if (!f) return;
+    var card = state.cards[state.currentIndex];
+    card[f] = e.target.value;
+
+    if (f === "keyword") {
+      var items = document.querySelectorAll("#cardList .card-item");
+      for (var k = 0; k < items.length; k++) {
+        if (String(items[k].getAttribute("data-index")) === String(state.currentIndex)) {
+          var kw = items[k].querySelector(".kw");
+          if (kw) kw.textContent = card.keyword || "";
+          break;
+        }
+      }
+      $("editorTitle").textContent = "卡片 " + (state.currentIndex + 1) + " / " + state.cards.length + " · " + (card.keyword || "");
+    } else if (f === "category") {
+      renderSidebar();
+      var chip = $("editorCategory");
+      chip.className = card.category ? "chip" : "chip-none";
+      chip.textContent = card.category || "未分类";
+    }
+
+    markDirty();
+    autosave();
+    updateStats();
+  });
+
+  $("btnDelete").addEventListener("click", function () {
+    if (!state.cards || state.currentIndex < 0) return;
+    confirmDelete(state.currentIndex);
+  });
+
+  /* ========== 拖拽导入 ========== */
+  window.addEventListener("dragover", function (e) { e.preventDefault(); });
+  window.addEventListener("drop", function (e) {
+    e.preventDefault();
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function () { parseJsonText(String(reader.result), f.name); };
+    reader.readAsText(f, "utf-8");
+  });
+
+  /* ========== 启动：自动尝试加载默认文件（http 协议下直接生效） ========== */
+  renderAll();
+})();
+</script>
+</body>
+</html>

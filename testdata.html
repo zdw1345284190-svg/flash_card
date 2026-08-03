@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>闪卡数据展示与编辑工具</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f2f4f7; --panel:#ffffff; --border:#dce0e6; --line:#eef0f4;
+  --text:#232a36; --muted:#6b7480; --faint:#9aa3af;
+  --accent:#0e7490; --accent-dark:#0b5f77; --accent-soft:#e3f2f7;
+  --danger:#c0392b; --danger-soft:#fbeae7;
+  --radius:8px;
+  --shadow:0 1px 2px rgba(20,30,50,.06), 0 4px 12px rgba(20,30,50,.05);
+}
+html,body{height:100%}
+body{
+  font-family:"Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;
+  background:var(--bg); color:var(--text); font-size:14px; line-height:1.5;
+  display:flex; flex-direction:column; height:100vh; overflow:hidden;
+}
+
+/* ===== 顶部工具栏 ===== */
+#toolbar{
+  flex:none; display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:10px 16px; background:var(--panel); border-bottom:1px solid var(--border);
+  flex-wrap:wrap;
+}
+.brand{display:flex; flex-direction:column; line-height:1.3}
+.brand strong{font-size:16px; letter-spacing:.5px}
+.brand .sub{font-size:12px; color:var(--muted)}
+.actions{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.sep{width:1px; height:22px; background:var(--border); margin:0 2px}
+
+.btn{
+  appearance:none; border:1px solid var(--border); background:var(--panel); color:var(--text);
+  padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer; font-family:inherit;
+  white-space:nowrap; transition:background .12s, border-color .12s, color .12s;
+}
+.btn:hover{border-color:var(--accent); color:var(--accent-dark)}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+.btn.primary:hover{background:var(--accent-dark)}
+.btn.danger{border-color:#e5b8b2; color:var(--danger)}
+.btn.danger:hover{border-color:var(--danger); background:var(--danger-soft)}
+.btn.ghost{border-color:transparent; background:transparent; color:var(--muted)}
+.btn.ghost:hover{color:var(--accent); background:var(--accent-soft)}
+.btn.tiny{padding:2px 8px; font-size:12px; border-radius:5px}
+.danger-text{color:var(--danger)}
+
+/* ===== 草稿提示条 ===== */
+#draftBar{
+  flex:none; display:flex; align-items:center; justify-content:center; gap:10px;
+  padding:7px 16px; background:#fff7e0; border-bottom:1px solid #ecd9a0;
+  color:#7a5b12; font-size:13px;
+}
+
+/* ===== 主区域 ===== */
+#main{flex:1; display:flex; min-height:0}
+
+/* 左侧卡片列表 */
+#side{
+  flex:none; width:252px; background:var(--panel); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; min-height:0;
+}
+.side-head{
+  padding:10px 14px; font-size:13px; font-weight:600; color:var(--muted);
+  border-bottom:1px solid var(--border);
+  display:flex; justify-content:space-between; align-items:center; flex:none;
+}
+.count{background:var(--accent-soft); color:var(--accent-dark); border-radius:10px; padding:0 8px; font-size:12px; font-weight:600}
+#cardList{list-style:none; overflow-y:auto; flex:1}
+.card-item{
+  padding:10px 14px; border-bottom:1px solid var(--line); cursor:pointer;
+  border-left:3px solid transparent; transition:background .1s;
+}
+.card-item:hover{background:#f6f8fa}
+.card-item.active{background:var(--accent-soft); border-left-color:var(--accent)}
+.card-item .kw{font-size:15px; font-weight:600; word-break:break-all}
+.card-item .ct{font-size:12px; color:var(--muted); margin-top:2px}
+.card-item .imgs{font-size:11px; color:var(--faint); margin-top:2px}
+.card-item .imgs::before{content:"图片 x "; color:var(--faint)}
+
+/* 右侧编辑区 */
+#editor{flex:1; overflow-y:auto; padding:16px 20px 48px; min-width:0}
+.editor-head{display:flex; align-items:baseline; gap:10px; margin-bottom:14px; flex-wrap:wrap}
+.editor-head h1{font-size:18px}
+.chip{font-size:12px; color:var(--accent-dark); background:var(--accent-soft); padding:2px 10px; border-radius:12px}
+.chip-none{font-size:12px; color:var(--faint); background:#eef0f4; padding:2px 10px; border-radius:12px}
+
+.block{
+  background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+  box-shadow:var(--shadow); padding:14px 16px; margin-bottom:16px;
+}
+.block-title{font-size:14px; font-weight:600; margin-bottom:10px; display:flex; align-items:center; gap:8px}
+.block-title .hint{font-size:12px; color:var(--muted); font-weight:400}
+
+/* 图片网格 */
+.img-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px}
+.img-item{border:1px solid var(--border); border-radius:8px; overflow:hidden; background:#fafbfc; display:flex; flex-direction:column}
+.img-item.is-default{border-color:var(--accent)}
+.thumb{position:relative; aspect-ratio:4/3; background:#eef1f4; display:flex; align-items:center; justify-content:center; overflow:hidden}
+.thumb img{width:100%; height:100%; object-fit:cover; display:block}
+.thumb img.broken{opacity:.2}
+.default-badge{position:absolute; top:6px; left:6px; background:var(--accent); color:#fff; font-size:11px; padding:1px 8px; border-radius:10px}
+.img-name{font-size:12px; color:var(--muted); padding:6px 8px 2px; word-break:break-all}
+.img-ops{padding:0 8px 8px; display:flex; gap:6px; flex-wrap:wrap}
+.img-empty{border:1px dashed var(--border); border-radius:8px; color:var(--faint); padding:26px; text-align:center; font-size:13px}
+
+/* 图片操作行 */
+.img-actions{display:flex; align-items:center; gap:10px; margin-top:12px; flex-wrap:wrap}
+.img-actions .sep2{color:var(--faint); font-size:12px}
+.manual-img{
+  flex:1; min-width:220px; border:1px solid var(--border); border-radius:6px;
+  padding:6px 10px; font-size:13px; font-family:inherit;
+}
+.manual-img:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(14,116,144,.12)}
+
+/* 图片库 */
+.lib{margin-top:12px; border-top:1px dashed var(--border); padding-top:12px}
+.lib-head{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; margin-bottom:10px}
+.lib-head .hint{font-weight:400}
+.lib-head .btn{margin-left:auto}
+.lib-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px; max-height:280px; overflow-y:auto; padding:2px}
+.lib-item{position:relative; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:#fafbfc; cursor:pointer; transition:border-color .12s, transform .12s}
+.lib-item:hover:not(.added){border-color:var(--accent); transform:translateY(-1px)}
+.lib-item img{width:100%; aspect-ratio:4/3; object-fit:cover; display:block; background:#eef1f4}
+.lib-name{font-size:11px; color:var(--muted); padding:4px 6px; word-break:break-all}
+.lib-tag{position:absolute; top:4px; right:4px; font-size:10px; padding:0 6px; border-radius:8px; background:rgba(255,255,255,.94); color:var(--accent-dark)}
+.lib-item.added{opacity:.55; cursor:default; background:#f1f1f1}
+.lib-item.added .lib-tag{color:#5a6570}
+
+/* 字段编辑 */
+.fields{display:grid; grid-template-columns:1fr 1fr; gap:14px 18px}
+.field{display:flex; flex-direction:column; gap:5px}
+.field label{font-size:12px; font-weight:600; color:var(--muted)}
+.field input, .field textarea{
+  border:1px solid var(--border); border-radius:6px; padding:7px 10px; font-size:13px;
+  font-family:inherit; resize:vertical; line-height:1.5; color:var(--text);
+}
+.field input:focus, .field textarea:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(14,116,144,.12)}
+.field textarea{min-height:96px}
+.field.full{grid-column:1 / -1}
+
+/* 加载失败提示 */
+#loadError{display:none; margin:14px 16px; padding:12px 16px; background:var(--danger-soft); border:1px solid #e5b8b2; border-radius:var(--radius); color:var(--danger); font-size:13px}
+
+/* Toast */
+#toast{
+  position:fixed; left:50%; bottom:28px; transform:translate(-50%,16px);
+  background:#26303f; color:#fff; padding:8px 18px; border-radius:8px; font-size:13px;
+  opacity:0; pointer-events:none; transition:opacity .18s, transform .18s; z-index:100;
+  box-shadow:0 6px 18px rgba(0,0,0,.22); max-width:80vw;
+}
+#toast.show{opacity:1; transform:translate(-50%,0)}
+
+/* 导出/复制模态框 */
+.modal-mask{
+  position:fixed; inset:0; background:rgba(20,30,50,.45); z-index:200;
+  display:flex; align-items:center; justify-content:center; padding:24px;
+}
+.modal-mask[hidden]{display:none}
+.modal{
+  background:var(--panel); border-radius:10px; box-shadow:0 12px 40px rgba(20,30,50,.3);
+  width:min(860px, 94vw); max-height:88vh; display:flex; flex-direction:column;
+  overflow:hidden;
+}
+.modal-head{
+  flex:none; display:flex; align-items:center; justify-content:space-between;
+  padding:12px 18px; border-bottom:1px solid var(--border); font-size:15px;
+}
+.modal-tip{
+  flex:none; padding:10px 18px; background:#f6f8fa; border-bottom:1px solid var(--line);
+  font-size:12.5px; color:var(--muted); line-height:1.7;
+}
+.modal-tip code{background:var(--accent-soft); color:var(--accent-dark); padding:1px 5px; border-radius:4px; font-size:12px}
+#exportText{
+  flex:1; min-height:0; margin:14px 18px; padding:12px; border:1px solid var(--border);
+  border-radius:8px; font-family:Consolas,"Courier New",monospace; font-size:12.5px;
+  line-height:1.55; color:var(--text); resize:none; white-space:pre; overflow:auto;
+  background:#fbfcfe;
+}
+.modal-actions{
+  flex:none; display:flex; align-items:center; gap:8px; padding:12px 18px;
+  border-top:1px solid var(--border);
+}
+.modal-size{flex:1; text-align:right; font-size:12px; color:var(--faint)}
+</style>
+</head>
+<body>
+
+<header id="toolbar">
+  <div class="brand">
+    <strong>闪卡数据展示与编辑工具</strong>
+    <span class="sub">data/testdata.js · 笠翁对韵 · 编辑后可导出替换原文件</span>
+  </div>
+  <div class="actions">
+    <button id="btnAddCard" class="btn">+ 新增卡片</button>
+    <button id="btnDelCard" class="btn danger">删除当前卡片</button>
+    <span class="sep"></span>
+    <button id="btnCopyJs" class="btn">复制 testdata.js</button>
+    <button id="btnExportJs" class="btn primary">导出 testdata.js</button>
+    <button id="btnExportJson" class="btn primary">导出 JSON</button>
+  </div>
+</header>
+
+<!-- 复制/导出模态框：展示最新 testdata.js 完整内容，供手动复制覆盖 GitHub 上的源文件 -->
+<div id="exportModal" class="modal-mask" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <strong>testdata.js 最新内容</strong>
+      <button id="btnModalClose" class="btn ghost tiny">关闭 ✕</button>
+    </div>
+    <p class="modal-tip">已生成最新卡片数据。请将下方内容<b>全选复制</b>，粘贴覆盖 GitHub 仓库中 <code>data/testdata.js</code> 的全文（浏览器无法直接写项目文件）。</p>
+    <textarea id="exportText" readonly spellcheck="false"></textarea>
+    <div class="modal-actions">
+      <button id="btnModalCopy" class="btn primary">复制内容</button>
+      <button id="btnModalDownload" class="btn">下载 testdata.js</button>
+      <span class="modal-size" id="exportSize"></span>
+    </div>
+  </div>
+</div>
+
+<div id="draftBar" hidden>
+  <span>检测到未导出的草稿，已加载。</span>
+  <button id="btnDraftRestore" class="btn ghost tiny">恢复原始数据</button>
+</div>
+
+<div id="loadError">加载失败：未找到 data/testdata.js，请确认文件位于项目 data/ 目录。</div>
+
+<div id="main">
+  <aside id="side">
+    <div class="side-head">卡片列表 <span id="cardCount" class="count"></span></div>
+    <ul id="cardList"></ul>
+  </aside>
+
+  <section id="editor">
+    <div class="editor-head">
+      <h1 id="editorTitle">卡片 1 / 5</h1>
+      <span id="editorCategory" class="chip"></span>
+    </div>
+
+    <div class="block">
+      <div class="block-title">图片管理 <span class="hint" id="imgCountHint"></span></div>
+      <div class="img-grid" id="imgGrid"></div>
+      <div class="img-actions">
+        <label class="btn ghost" for="dirPicker">选择 testdata_images/ 目录</label>
+        <input type="file" id="dirPicker" directory webkitdirectory hidden>
+        <span class="sep2">或</span>
+        <input type="text" id="manualImg" class="manual-img" placeholder="testdata_images/文件名.png（回车添加）">
+      </div>
+      <div class="lib" id="libPanel" hidden>
+        <div class="lib-head">可用图片库 <span class="hint" id="libCount"></span>
+          <button id="btnClearLib" class="btn ghost tiny">清空库</button>
+        </div>
+        <div class="lib-grid" id="libGrid"></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title">字段编辑 <span class="hint">修改自动保存草稿，导出时按原格式输出</span></div>
+      <div class="fields">
+        <div class="field full">
+          <label for="f_prompt">图片提示词</label>
+          <textarea id="f_prompt" rows="5" data-field="图片提示词"></textarea>
+        </div>
+        <div class="field">
+          <label for="f_keyword">keyword</label>
+          <input id="f_keyword" type="text" data-field="keyword">
+        </div>
+        <div class="field">
+          <label for="f_logic">logic</label>
+          <input id="f_logic" type="text" data-field="logic">
+        </div>
+        <div class="field">
+          <label for="f_source">source</label>
+          <input id="f_source" type="text" data-field="source">
+        </div>
+        <div class="field">
+          <label for="f_analysis">analysis</label>
+          <input id="f_analysis" type="text" data-field="analysis">
+        </div>
+        <div class="field">
+          <label for="f_category">category</label>
+          <input id="f_category" type="text" data-field="category">
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="data/testdata.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var LS_KEY = "fc_testdata_draft";
+  // JSON.stringify 默认把非 ASCII 转成 \uXXXX，导出时恢复为原始中文。
+  var UNICODE_RE = /\\u([0-9a-fA-F]{4})/g;
+  function restoreUnicode(s) {
+    return s.replace(UNICODE_RE, function (m, g) {
+      return String.fromCharCode(parseInt(g, 16));
+    });
+  }
+
+  if (typeof testdata === "undefined" || !Array.isArray(testdata)) {
+    document.getElementById("loadError").style.display = "block";
+    return;
+  }
+
+  var original = JSON.parse(JSON.stringify(testdata));
+  var cards = null;
+  var currentIndex = 0;
+  var libFiles = []; // [{name, url}]
+  var toastTimer = null;
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  /* ========== 草稿存取 ========== */
+  function loadDraft() {
+    var restored = false;
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // 兼容旧版草稿：图片目录曾命名为 images/，现统一为 testdata_images/
+          parsed.forEach(function (c) {
+            if (Array.isArray(c.image)) {
+              c.image = c.image.map(function (p) {
+                return String(p).replace(/^images\//, "testdata_images/");
+              });
+            }
+          });
+          cards = parsed;
+          restored = true;
+        }
+      }
+    } catch (e) { /* 草稿损坏则忽略 */ }
+    if (!cards) cards = JSON.parse(JSON.stringify(original));
+    if (restored) $("draftBar").hidden = false;
+  }
+
+  function autosave() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(cards)); } catch (e) { /* 忽略配额错误 */ }
+  }
+
+  function restoreOriginal() {
+    try { localStorage.removeItem(LS_KEY); } catch (e) {}
+    cards = JSON.parse(JSON.stringify(original));
+    currentIndex = 0;
+    $("draftBar").hidden = true;
+    renderAll();
+    toast("已恢复原始数据，草稿已清除");
+  }
+
+  /* ========== Toast ========== */
+  function toast(msg) {
+    var t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2200);
+  }
+
+  /* ========== 渲染：左侧列表 ========== */
+  function renderList() {
+    var ul = $("cardList");
+    ul.innerHTML = "";
+    cards.forEach(function (card, i) {
+      var li = el("li", "card-item" + (i === currentIndex ? " active" : ""));
+      li.appendChild(el("div", "kw", String(card.keyword)));
+      li.appendChild(el("div", "ct", String(card.category || "（无分类）")));
+      if (card.image && card.image.length) {
+        var im = el("div", "imgs", String(card.image.length));
+        li.appendChild(im);
+      }
+      li.onclick = function () {
+        currentIndex = i;
+        renderAll();
+      };
+      ul.appendChild(li);
+    });
+    $("cardCount").textContent = cards.length + " 张";
+  }
+
+  /* ========== 渲染：右侧编辑区 ========== */
+  function renderEditor() {
+    var card = cards[currentIndex];
+    $("editorTitle").textContent = "卡片 " + (currentIndex + 1) + " / " + cards.length + " · " + card.keyword;
+
+    var chip = $("editorCategory");
+    chip.className = card.category ? "chip" : "chip-none";
+    chip.textContent = card.category || "（未设置分类）";
+
+    // 字段回填
+    var fields = ["图片提示词", "keyword", "logic", "source", "analysis", "category"];
+    fields.forEach(function (f) {
+      var input = document.querySelector('[data-field="' + f + '"]');
+      if (input) input.value = card[f] != null ? card[f] : "";
+    });
+
+    renderImgGrid();
+    renderLib();
+  }
+
+  function renderAll() { renderList(); renderEditor(); }
+
+  /* ========== 图片网格（当前卡片） ========== */
+  function renderImgGrid() {
+    var grid = $("imgGrid");
+    var card = cards[currentIndex];
+    $("imgCountHint").textContent = card.image.length ? "共 " + card.image.length + " 张，第一张为默认图片（渲染时优先展示）" : "当前卡片暂无图片";
+    grid.innerHTML = "";
+
+    if (!card.image.length) {
+      grid.appendChild(el("div", "img-empty", "暂无图片，可在下方选择 testdata_images/ 目录或手动输入文件名添加"));
+      return;
+    }
+
+    card.image.forEach(function (path, i) {
+      var item = el("div", "img-item" + (i === 0 ? " is-default" : ""));
+      var thumbWrap = el("div", "thumb");
+      var img = el("img");
+      img.src = path;
+      img.alt = path;
+      img.onerror = function () { img.classList.add("broken"); };
+      thumbWrap.appendChild(img);
+      if (i === 0) thumbWrap.appendChild(el("span", "default-badge", "默认"));
+
+      item.appendChild(thumbWrap);
+      item.appendChild(el("div", "img-name", String(path).replace(/^testdata_images\//, "")));
+
+      var ops = el("div", "img-ops");
+      if (i > 0) {
+        var dbtn = el("button", "btn tiny ghost", "设为默认");
+        dbtn.onclick = function () { setDefault(i); };
+        ops.appendChild(dbtn);
+      }
+      var rbtn = el("button", "btn tiny ghost danger-text", "删除");
+      rbtn.onclick = function () { removeImage(i); };
+      ops.appendChild(rbtn);
+      item.appendChild(ops);
+      grid.appendChild(item);
+    });
+  }
+
+  function setDefault(i) {
+    var card = cards[currentIndex];
+    if (i <= 0) return;
+    var item = card.image.splice(i, 1)[0];
+    card.image.unshift(item);
+    autosave();
+    renderImgGrid();
+    renderLib();
+    toast("已将 " + item.replace(/^testdata_images\//, "") + " 设为默认图片");
+  }
+
+  function removeImage(i) {
+    var card = cards[currentIndex];
+    var removed = card.image.splice(i, 1)[0];
+    autosave();
+    renderImgGrid();
+    renderLib();
+    toast("已删除 " + removed.replace(/^testdata_images\//, ""));
+  }
+
+  function addImage(path) {
+    if (!path) return;
+    if (path.indexOf("testdata_images/") !== 0) path = "testdata_images/" + path.replace(/^\.?\//, "");
+    var card = cards[currentIndex];
+    if (card.image.indexOf(path) !== -1) {
+      toast("该图片已在卡片中：" + path.replace(/^testdata_images\//, ""));
+      return;
+    }
+    card.image.push(path);
+    autosave();
+    renderImgGrid();
+    renderLib();
+    toast("已添加 " + path.replace(/^testdata_images\//, ""));
+  }
+
+  /* ========== 图片库（选择目录后枚举） ========== */
+  var dirPicker = $("dirPicker");
+  dirPicker.addEventListener("change", function () {
+    var files = Array.prototype.slice.call(dirPicker.files);
+    // 释放旧的 object URL
+    libFiles.forEach(function (f) { if (f.url) URL.revokeObjectURL(f.url); });
+    libFiles = files
+      .filter(function (f) { return /\.(png|jpe?g)$/i.test(f.name); })
+      .map(function (f) { return { name: f.name, url: URL.createObjectURL(f) }; })
+      .sort(function (a, b) { return a.name < b.name ? -1 : 1; });
+    dirPicker.value = ""; // 允许再次选择同一目录
+    renderLib();
+    if (libFiles.length) toast("已载入 " + libFiles.length + " 张可用图片");
+  });
+
+  $("btnClearLib").addEventListener("click", function () {
+    libFiles.forEach(function (f) { if (f.url) URL.revokeObjectURL(f.url); });
+    libFiles = [];
+    renderLib();
+    toast("已清空图片库");
+  });
+
+  function renderLib() {
+    var panel = $("libPanel");
+    var grid = $("libGrid");
+    if (!libFiles.length) { panel.hidden = true; return; }
+    panel.hidden = false;
+    $("libCount").textContent = "(" + libFiles.length + " 张)";
+    grid.innerHTML = "";
+
+    var card = cards[currentIndex];
+    libFiles.forEach(function (f) {
+      var path = "testdata_images/" + f.name;
+      var added = card.image.indexOf(path) !== -1;
+      var item = el("div", "lib-item" + (added ? " added" : ""));
+      var img = el("img");
+      img.src = f.url;
+      img.alt = f.name;
+      item.appendChild(img);
+      item.appendChild(el("div", "lib-name", f.name));
+      item.appendChild(el("span", "lib-tag", added ? "已添加" : "点击添加"));
+      item.title = added ? "已在该卡片中" : "点击添加到当前卡片";
+      if (!added) item.onclick = function () { addImage(path); };
+      grid.appendChild(item);
+    });
+  }
+
+  /* 手动输入文件名（兜底方式） */
+  $("manualImg").addEventListener("keydown", function (e) {
+    if (e.key !== "Enter") return;
+    var v = this.value.trim();
+    if (!v) return;
+    addImage(v);
+    this.value = "";
+  });
+
+  /* ========== 字段编辑 ========== */
+  $("editor").addEventListener("input", function (e) {
+    var f = e.target.getAttribute("data-field");
+    if (!f) return;
+    var card = cards[currentIndex];
+    card[f] = e.target.value;
+    autosave();
+    renderList();
+    $("editorTitle").textContent = "卡片 " + (currentIndex + 1) + " / " + cards.length + " · " + card.keyword;
+    if (f === "category") $("editorCategory").textContent = card.category || "（未设置分类）";
+  });
+
+  /* ========== 新增 / 删除卡片 ========== */
+  $("btnAddCard").addEventListener("click", function () {
+    cards.push({
+      "image": [],
+      "图片提示词": "",
+      "keyword": "新词",
+      "logic": "",
+      "source": "",
+      "analysis": "",
+      "category": "卷上·一东"
+    });
+    currentIndex = cards.length - 1;
+    autosave();
+    renderAll();
+    toast("已新增卡片，请填写内容");
+  });
+
+  $("btnDelCard").addEventListener("click", function () {
+    if (cards.length <= 1) { toast("至少保留一张卡片"); return; }
+    cards.splice(currentIndex, 1);
+    if (currentIndex >= cards.length) currentIndex = cards.length - 1;
+    autosave();
+    renderAll();
+    toast("已删除当前卡片");
+  });
+
+  /* ========== 导出 ========== */
+  // 字符串转 JSON 双引号字面量（含转义），随后恢复中文
+  function escapeStr(s) {
+    return restoreUnicode(JSON.stringify(String(s)));
+  }
+
+  // 数组按现有 testdata.js 风格内联：["a", "b", "c"]
+  function inlineArray(arr) {
+    return "[" + arr.map(escapeStr).join(", ") + "]";
+  }
+
+  // 单个卡片，按 schema 字段顺序、2 空格缩进序列化（字段名/值均用双引号）
+  function stringifyCard2(card, baseIndent) {
+    var keys = Object.keys(card);
+    var lines = [baseIndent + "{"];
+    keys.forEach(function (k, i) {
+      var comma = i < keys.length - 1 ? "," : "";
+      var v = card[k];
+      var val = Array.isArray(v) ? inlineArray(v) : escapeStr(v);
+      lines.push(baseIndent + '  "' + k + '": ' + val + comma);
+    });
+    lines.push(baseIndent + "}");
+    return lines.join("\n");
+  }
+
+  var JS_HEADER = [
+    "// 笠翁对韵专属闪卡测试数据",
+    "// 卡片正面为图片页(image 数组，可含多张图)，背面为信息页(keyword/logic/source/analysis/category)",
+    "// image 为图片路径数组，供 HTML 渲染时轮播/选择使用"
+  ].join("\n");
+
+  function serializeJs(cardsArr) {
+    var body = cardsArr.map(function (c) {
+      return stringifyCard2(c, "  ");
+    }).join(",\n");
+    return JS_HEADER + "\nconst testdata = [\n" + body + "\n];\n";
+  }
+
+  function serializeJson(cardsArr) {
+    return restoreUnicode(JSON.stringify(cardsArr, null, 2)) + "\n";
+  }
+
+  function download(filename, text) {
+    var blob = new Blob([text], { type: "application/octet-stream;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  }
+
+  $("btnExportJs").addEventListener("click", function () {
+    download("testdata.js", serializeJs(cards));
+    toast("已下载 testdata.js，请替换 data/ 目录下的原文件");
+  });
+
+  $("btnExportJson").addEventListener("click", function () {
+    download("testdata.json", serializeJson(cards));
+    toast("已下载 testdata.json");
+  });
+
+  /* ========== 复制模态框：手动覆盖 GitHub 上的 testdata.js ========== */
+  var exportModal = $("exportModal");
+  var exportText = $("exportText");
+
+  function openExportModal() {
+    var content = serializeJs(cards);
+    exportText.value = content;
+    $("exportSize").textContent = content.length + " 字符 / " + (content.split("\n").length) + " 行";
+    exportModal.hidden = false;
+    // 自动全选，方便直接 Ctrl+C
+    exportText.focus();
+    exportText.select();
+  }
+
+  function closeExportModal() {
+    exportModal.hidden = true;
+  }
+
+  function copyExportText() {
+    var ok = false;
+    // 优先使用 Clipboard API（file:// 下可能受限）
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(exportText.value);
+        ok = true;
+      }
+    } catch (e) { ok = false; }
+    if (!ok) {
+      // 兜底：选中 textarea 内容并执行 execCommand('copy')
+      exportText.focus();
+      exportText.select();
+      ok = document.execCommand && document.execCommand("copy");
+    }
+    toast(ok ? "内容已复制到剪贴板，请粘贴覆盖 GitHub 仓库中的 data/testdata.js" : "复制失败，请手动全选复制（Ctrl+A / Ctrl+C）");
+  }
+
+  $("btnCopyJs").addEventListener("click", openExportModal);
+  $("btnModalCopy").addEventListener("click", copyExportText);
+  $("btnModalDownload").addEventListener("click", function () {
+    download("testdata.js", exportText.value);
+    toast("已下载 testdata.js");
+  });
+  $("btnModalClose").addEventListener("click", closeExportModal);
+  exportModal.addEventListener("click", function (e) {
+    if (e.target === exportModal) closeExportModal();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !exportModal.hidden) closeExportModal();
+  });
+
+  $("btnDraftRestore").addEventListener("click", restoreOriginal);
+
+  /* ========== 启动 ========== */
+  loadDraft();
+  renderAll();
+})();
+</script>
+</body>
+</html>

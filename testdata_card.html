@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>笠翁对韵 · 儿童闪卡（B5 横版打印）</title>
+<style>
+/* ============================================================
+   笠翁对韵闪卡 · B5 横版打印版
+   卡片横版：正面 = 完整图片铺满整页（无任何附加内容）
+             背面 = 大号 keyword + 其余信息缩至极小
+   双面打印（长边翻转）后即为成品卡片，无需裁剪
+   数据源：data/testdata.js（<script> 直接引用，file:// 离线可用）
+   ============================================================ */
+*{box-sizing:border-box;margin:0;padding:0}
+*{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+:root{
+  --sky:#4db6e8; --sky-deep:#1f8fce; --sun:#ffc93c; --sun-soft:#fff3cd;
+  --coral:#ff7a5c; --mint:#5fc9a3; --grape:#9b7ed8; --pink:#f291b6;
+  --cream:#fffaf0; --ink:#3c4353; --muted:#7a8394; --faint:#a8b0bd;
+}
+html,body{margin:0;padding:0}
+body{
+  font-family:"YouYuan","幼圆","Comic Sans MS","Chalkboard SE","Microsoft YaHei","PingFang SC",sans-serif;
+  background:linear-gradient(180deg,#d8effb 0%,#f4f9ff 34%,#fff7e6 100%);
+  background-attachment:fixed;
+  color:var(--ink); font-size:14px; line-height:1.5;
+}
+
+/* ===================== 屏幕顶部栏（打印时隐藏） ===================== */
+.topbar{
+  max-width:1080px; margin:0 auto; padding:22px 20px 6px; text-align:center;
+}
+.topbar .logo{font-size:30px; font-weight:bold; letter-spacing:2px}
+.topbar .logo .c1{color:var(--sky-deep)} .topbar .logo .c2{color:var(--coral)}
+.topbar .logo .c3{color:var(--mint)} .topbar .logo .c4{color:var(--grape)}
+.topbar .sub{margin-top:6px; color:var(--muted); font-size:14px}
+.topbar .sub b{color:var(--coral)}
+
+.print-panel{
+  display:inline-flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:center;
+  margin-top:14px; padding:10px 16px; background:rgba(255,255,255,.92);
+  border:2px solid #ffe3a3; border-radius:16px; box-shadow:0 4px 14px rgba(120,90,20,.10);
+}
+.print-panel label{
+  display:flex; align-items:center; gap:5px; font-size:14px; cursor:pointer;
+  padding:5px 12px; border-radius:20px; background:#f4f8fb; color:var(--ink);
+  transition:background .15s, color .15s;
+}
+.print-panel input{accent-color:var(--sky-deep)}
+.print-panel label:has(input:checked){background:var(--sun-soft); color:#8a5a00; font-weight:bold}
+.btn-print{
+  appearance:none; border:none; cursor:pointer; font-family:inherit;
+  background:linear-gradient(135deg,var(--coral),#ff9a6b); color:#fff;
+  font-size:15px; font-weight:bold; padding:8px 20px; border-radius:22px;
+  box-shadow:0 3px 0 #d95a3c; transition:transform .1s, box-shadow .1s;
+}
+.btn-print:hover{transform:translateY(-1px)}
+.btn-print:active{transform:translateY(1px); box-shadow:0 1px 0 #d95a3c}
+.tip{
+  margin-top:8px; font-size:12.5px; color:var(--muted);
+  background:rgba(255,255,255,.7); display:inline-block; padding:4px 14px; border-radius:12px;
+  max-width:820px; line-height:1.7;
+}
+.tip code{background:#eef4f9; padding:0 5px; border-radius:4px; color:var(--sky-deep); font-family:inherit}
+#loadError{display:none; margin-top:10px; color:#c0392b; font-size:13px}
+
+/* ===================== 屏幕预览（点击翻面，打印时隐藏） ===================== */
+.preview{
+  max-width:1080px; margin:0 auto; padding:26px 20px 60px;
+  display:flex; flex-wrap:wrap; gap:28px; justify-content:center;
+}
+/* 预览卡按 B5 横版比例 250:176 */
+.flip-card{width:375px; height:264px; perspective:1200px; cursor:pointer}
+.flip-inner{
+  position:relative; width:100%; height:100%;
+  transition:transform .55s ease; transform-style:preserve-3d;
+}
+.flip-card.flipped .flip-inner{transform:rotateY(180deg)}
+.flip-face{
+  position:absolute; inset:0; border-radius:22px; overflow:hidden;
+  backface-visibility:hidden; -webkit-backface-visibility:hidden;
+  box-shadow:0 6px 18px rgba(60,80,120,.16), 0 0 0 3px #fff;
+}
+.flip-face.front{background:#fff}
+.flip-face.back{transform:rotateY(180deg); background:linear-gradient(160deg,#ffffff,var(--cream))}
+
+/* 正面：完整图片（contain 居中 + 圆角，无任何附加内容） */
+.ff-img{position:absolute; inset:0; display:flex; align-items:center; justify-content:center}
+.ff-img img{max-width:100%; max-height:100%; display:block; border-radius:14px}
+.ff-dots{
+  position:absolute; top:10px; left:0; right:0; z-index:2;
+  display:flex; gap:7px; justify-content:center;
+}
+.ff-dots .dot{
+  width:10px; height:10px; border-radius:50%; border:2px solid #fff;
+  background:rgba(255,255,255,.45); cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.25);
+  padding:0; transition:background .15s, transform .15s;
+}
+.ff-dots .dot.on{background:var(--coral); transform:scale(1.2)}
+/* 无图占位 */
+.ph{
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:8px;
+  background:linear-gradient(135deg,#e3f4ff,#fff3cd);
+}
+.ph .ph-kw{font-size:72px; font-weight:bold; color:var(--sky-deep)}
+.ph .ph-txt{font-size:14px; color:var(--muted); letter-spacing:2px}
+
+/* 背面：keyword 放大偏上 + source/analysis 中下 + logic 左下 + category/序号 右下
+   （屏幕与打印共用结构，字号/位置打印时覆盖） */
+.fb{position:absolute; inset:0; padding:16px 20px}
+.b-kw{
+  position:absolute; left:0; right:0; top:42%; transform:translateY(-50%);
+  font-size:126px; font-weight:bold; line-height:1.1; text-align:center;
+  color:#000;
+}
+.b-meta{
+  position:absolute; left:0; right:0; bottom:34px; text-align:center;
+  font-size:11px; color:#000; line-height:1.8;
+}
+.b-meta .b-src{color:#000}
+.b-logic{
+  position:absolute; left:20px; bottom:14px; max-width:45%;
+  font-size:11px; color:#000; line-height:1.6;
+}
+.b-badge{
+  position:absolute; right:20px; bottom:14px; text-align:right;
+  font-size:11px; color:#000; line-height:1.6;
+}
+.b-badge .b-no{color:#000}
+
+/* ===================== 打印版式（仅打印时显示） ===================== */
+.sheet{display:none}
+@media print{
+  body{background:#fff}
+  .topbar,.preview,.tip{display:none !important}
+
+  /* B5 横版（250×176mm），页边距 0，内容满铺整页 */
+  @page{size:250mm 176mm; margin:0}
+  .sheet{display:block}
+  body.print-front .sheet-page.back{display:none}
+  body.print-back .sheet-page.front{display:none}
+
+  .sheet-page{
+    width:250mm; height:176mm; position:relative; overflow:hidden;
+    page-break-inside:avoid; break-inside:avoid;
+  }
+  /* 相邻页面在各自新页开始（最后一个自然收尾，不会产生空白页） */
+  .sheet-page:not(:first-child){page-break-before:always; break-before:page}
+
+  /* ---- 正面：完整图片 + 圆角，无边框无附加内容 ---- */
+  .sheet-page.front{background:#fff; display:flex; align-items:center; justify-content:center}
+  .sheet-page.front img{max-width:100%; max-height:100%; object-fit:contain; display:block; border-radius:8mm}
+  .sheet-page.front .ph{position:static; width:100%; height:100%}
+  .sheet-page.front .ph .ph-kw{font-size:52pt}
+  .sheet-page.front .ph .ph-txt{font-size:12pt}
+
+  /* ---- 背面：keyword 放大偏上，其余信息角落极小排布 ---- */
+  .sheet-page.back{background:#ffffff}
+  .sheet-page.back .b-kw{font-size:140pt; top:40%}
+  .sheet-page.back .b-meta{font-size:10pt; bottom:18mm; line-height:1.9}
+  .sheet-page.back .b-meta .b-src{font-size:11pt; color:#000}
+  .sheet-page.back .b-logic{font-size:8.5pt; left:10mm; bottom:8mm; max-width:42%}
+  .sheet-page.back .b-badge{font-size:9pt; right:10mm; bottom:8mm}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ 屏幕顶部栏（打印时隐藏） ============ -->
+<header class="topbar">
+  <div class="logo"><span class="c1">笠翁对韵</span> <span class="c2">·</span> <span class="c3">儿童闪卡</span></div>
+  <div class="sub">正面看图 · 背面学词 · 一卡一页 · <b>Ctrl+P</b> 直接打印</div>
+  <div class="print-panel">
+    <label><input type="radio" name="printopt" value="all" checked> 双面打印</label>
+    <label><input type="radio" name="printopt" value="front"> 仅正面</label>
+    <label><input type="radio" name="printopt" value="back"> 仅背面</label>
+    <button id="btnPrint" class="btn-print">打印 / 存 PDF</button>
+  </div>
+  <div class="tip">打印设置：纸张选 <code>B5 横向</code>（250×176mm）· 双面打印选 <code>长边翻转</code> → 每张卡即一整张 B5 纸，<b>打印完就是成品，无需裁剪</b>。<br>若打印机的 B5 是 182×257mm（JIS），请在打印对话框勾选「适应纸张」，效果一致。</div>
+  <div id="loadError">加载失败：未找到 data/testdata.js，请确认文件位于项目 data/ 目录。</div>
+</header>
+
+<!-- ============ 屏幕预览：点击卡片翻面 ============ -->
+<main id="preview" class="preview"></main>
+
+<!-- ============ 打印页：每张卡 = 正面页 + 背面页（相邻，双面打印自动配对） ============ -->
+<section id="sheetAll" class="sheet"></section>
+
+<script src="data/testdata.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  if (typeof testdata === "undefined" || !Array.isArray(testdata) || !testdata.length) {
+    document.getElementById("loadError").style.display = "block";
+    return;
+  }
+  var CARDS = testdata;
+  // 每张卡当前选中的图片下标（多图时由圆点选择，打印正面使用所选图）
+  var pick = CARDS.map(function () { return 0; });
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  /* ---------- 图片节点：成功显示 img，失败/缺失显示占位 ---------- */
+  function imageNode(path, kwText) {
+    if (!path) return placeholderNode(kwText);
+    var img = el("img");
+    img.alt = kwText;
+    img.onerror = function () {
+      img.replaceWith(placeholderNode(kwText));
+    };
+    img.src = path;
+    return img;
+  }
+
+  function placeholderNode(kwText) {
+    var wrap = el("div", "ph");
+    wrap.appendChild(el("span", "ph-kw", kwText));
+    wrap.appendChild(el("span", "ph-txt", "暂无图片"));
+    return wrap;
+  }
+
+  /* ---------- 背面内容：keyword 偏上放大 + source/analysis 中下 + logic 左下 + category/序号 右下 ---------- */
+  function backInfo(card, i) {
+    var frag = document.createDocumentFragment();
+    frag.appendChild(el("div", "b-kw", card.keyword));
+
+    // 中下侧：出处 + 释义
+    var meta = el("div", "b-meta");
+    if (card.source) meta.appendChild(el("div", "b-src", "《" + card.source + "》"));
+    if (card.analysis) meta.appendChild(el("div", "b-an", card.analysis));
+    frag.appendChild(meta);
+
+    // 左下角：位置逻辑
+    if (card.logic) frag.appendChild(el("div", "b-logic", card.logic));
+
+    // 右下角：韵部 + 序号
+    var badge = el("div", "b-badge");
+    if (card.category) badge.appendChild(el("span", "", card.category + "　"));
+    badge.appendChild(el("span", "b-no", (i + 1) + "/" + CARDS.length));
+    frag.appendChild(badge);
+
+    return frag;
+  }
+
+  /* ---------- 屏幕预览卡片（3D 翻转） ---------- */
+  function buildPreviewCard(card, i) {
+    var cardEl = el("div", "flip-card");
+    var inner = el("div", "flip-inner");
+
+    // 正面：完整图片
+    var front = el("div", "flip-face front");
+    var imgBox = el("div", "ff-img");
+    imgBox.appendChild(imageNode(card.image && card.image[0], card.keyword));
+    front.appendChild(imgBox);
+    if (card.image && card.image.length > 1) {
+      var dots = el("div", "ff-dots");
+      card.image.forEach(function (_, d) {
+        var dot = el("button", "dot" + (d === pick[i] ? " on" : ""));
+        dot.setAttribute("type", "button");
+        dot.title = "选择图片 " + (d + 1);
+        dot.onclick = function (e) {
+          e.stopPropagation();
+          pick[i] = d;
+          refreshPreviewFront(cardEl, card, i);
+          renderSheets();
+        };
+        dots.appendChild(dot);
+      });
+      front.appendChild(dots);
+    }
+    inner.appendChild(front);
+
+    // 背面
+    var back = el("div", "flip-face back fb");
+    back.appendChild(backInfo(card, i));
+    inner.appendChild(back);
+
+    cardEl.appendChild(inner);
+    cardEl.onclick = function () { cardEl.classList.toggle("flipped"); };
+    return cardEl;
+  }
+
+  function refreshPreviewFront(cardEl, card, i) {
+    var front = cardEl.querySelector(".flip-face.front");
+    var imgBox = front.querySelector(".ff-img");
+    var path = card.image && card.image.length ? card.image[pick[i]] : null;
+    imgBox.innerHTML = "";
+    imgBox.appendChild(imageNode(path, card.keyword));
+    var dots = front.querySelectorAll(".dot");
+    for (var d = 0; d < dots.length; d++) {
+      dots[d].classList.toggle("on", d === pick[i]);
+    }
+  }
+
+  /* ---------- 打印页渲染：每张卡 = 正面页 + 背面页（相邻两页） ---------- */
+  function renderSheets() {
+    var all = document.getElementById("sheetAll");
+    all.innerHTML = "";
+
+    CARDS.forEach(function (card, i) {
+      // 正面页（完整图片，无任何附加内容）
+      var f = el("div", "sheet-page front");
+      var path = card.image && card.image.length ? card.image[pick[i]] : null;
+      f.appendChild(imageNode(path, card.keyword));
+      all.appendChild(f);
+
+      // 背面页（大 keyword + 极小信息）
+      var b = el("div", "sheet-page back");
+      b.appendChild(backInfo(card, i));
+      all.appendChild(b);
+    });
+  }
+
+  /* ---------- 打印选项：控制输出正面/背面/全部 ---------- */
+  var radios = document.querySelectorAll('input[name="printopt"]');
+  for (var r = 0; r < radios.length; r++) {
+    radios[r].addEventListener("change", function () {
+      document.body.className = this.value === "all" ? "" : "print-" + this.value;
+    });
+  }
+  document.getElementById("btnPrint").addEventListener("click", function () {
+    window.print();
+  });
+
+  /* ---------- 启动 ---------- */
+  var preview = document.getElementById("preview");
+  CARDS.forEach(function (card, i) {
+    preview.appendChild(buildPreviewCard(card, i));
+  });
+  renderSheets();
+})();
+</script>
+</body>
+</html>

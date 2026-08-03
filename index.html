@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>笠翁对韵闪卡 · 入口</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --sky:#4db6e8; --sky-deep:#1f8fce; --sun:#ffc93c; --sun-soft:#fff3cd;
+  --coral:#ff7a5c; --mint:#5fc9a3; --grape:#9b7ed8; --pink:#f291b6;
+  --cream:#fffaf0; --ink:#3c4353; --muted:#7a8394;
+}
+html,body{height:100%}
+body{
+  font-family:"YouYuan","幼圆","Comic Sans MS","Chalkboard SE","Microsoft YaHei","PingFang SC",sans-serif;
+  background:linear-gradient(180deg,#d8effb 0%,#f4f9ff 34%,#fff7e6 100%);
+  background-attachment:fixed;
+  color:var(--ink); display:flex; flex-direction:column; align-items:center; justify-content:center;
+  min-height:100vh; padding:24px;
+}
+.card{
+  background:var(--cream); border:3px solid var(--sky);
+  border-radius:20px; padding:48px 56px; text-align:center;
+  box-shadow:0 8px 32px rgba(31,143,206,.18);
+  max-width:640px; width:100%;
+}
+.logo{font-size:38px; font-weight:bold; letter-spacing:3px}
+.logo .c1{color:var(--sky-deep)} .logo .c2{color:var(--coral)}
+.logo .c3{color:var(--mint)} .logo .c4{color:var(--grape)}
+.sub{margin-top:10px; color:var(--muted); font-size:15px}
+.links{margin-top:36px; display:flex; flex-direction:column; gap:16px}
+a.link{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  text-decoration:none; padding:18px 22px; border-radius:14px;
+  font-size:17px; font-weight:bold; letter-spacing:1px; color:#fff;
+  transition:transform .15s, box-shadow .15s;
+}
+a.link:hover{transform:translateY(-3px)}
+a.link .tag{font-size:12px; font-weight:normal; opacity:.9; letter-spacing:0}
+.link-print{background:linear-gradient(135deg,var(--sky),var(--sky-deep)); box-shadow:0 4px 14px rgba(31,143,206,.35)}
+.link-edit{background:linear-gradient(135deg,var(--mint),#3aa878); box-shadow:0 4px 14px rgba(95,201,163,.35)}
+.foot{margin-top:28px; color:var(--muted); font-size:13px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo"><span class="c1">笠</span><span class="c2">翁</span><span class="c3">对</span><span class="c4">韵</span></div>
+  <div class="sub">儿童闪卡 · 数据 260802</div>
+  <div class="links">
+    <a class="link link-print" href="data_260802_card.html">🖨 闪卡打印版（B5 横版）<span class="tag">双面打印</span></a>
+    <a class="link link-edit" href="data_260802.html">✏ 数据展示与编辑工具<span class="tag">审核用</span></a>
+  </div>
+  <div class="foot">双击打开即可离线使用 · 打印版按 Ctrl+P</div>
+</div>
+</body>
+</html>

@@ -67,8 +67,6 @@ body{
 .btn.ghost{border-color:transparent; background:transparent; color:var(--muted)}
 .btn.ghost:hover{color:var(--accent); background:var(--accent-soft)}
 .btn.tiny{padding:2px 8px; font-size:12px; border-radius:5px}
-.btn.icon-btn{display:none; padding:4px 9px; font-size:16px; line-height:1}
-.btn.icon-btn:hover{border-color:var(--border); background:#f6f8fa; color:var(--text)}
 
 /* ===== 草稿 / 错误提示条 ===== */
 #draftBar, #loadError{
@@ -162,6 +160,16 @@ body{
   display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;
 }
 .editor-head h1{font-size:18px; flex:1; min-width:140px}
+.nav-btns{display:flex; align-items:center; gap:6px; flex:none}
+.nav-btns .nav-btn{
+  padding:6px 14px; font-size:13px; font-weight:600;
+  background:var(--accent-soft); color:var(--accent-dark);
+  border-color:var(--accent); border-radius:20px;
+}
+.nav-btns .nav-btn:hover{
+  background:var(--accent); color:#fff;
+  border-color:var(--accent);
+}
 .chip{
   font-size:12px; color:var(--accent-dark); background:var(--accent-soft);
   padding:2px 12px; border-radius:12px; font-weight:600;
@@ -216,13 +224,6 @@ body{
 }
 #toast.show{opacity:1; transform:translate(-50%,0)}
 
-/* 遮罩（移动端抽屉） */
-#mask{
-  position:fixed; inset:0; background:rgba(20,30,50,.42); z-index:150;
-  opacity:0; pointer-events:none; transition:opacity .22s;
-}
-#mask.show{opacity:1; pointer-events:auto}
-
 /* 删除确认模态框 */
 .modal-mask{
   position:fixed; inset:0; background:rgba(20,30,50,.45); z-index:300;
@@ -244,40 +245,96 @@ body{
   border-top:1px solid var(--border); background:#fafbfc;
 }
 
-/* ===== 移动端：抽屉式侧栏 ===== */
+/* ===== 移动端：横向滚动卡片条 + 大面积编辑区 ===== */
 @media (max-width: 860px){
   #toolbar{padding:8px 10px; gap:8px}
   .brand .sub{display:none}
   .brand strong{font-size:15px}
   .stats .stat{font-size:11px; padding:2px 10px}
-  .btn.icon-btn{display:inline-flex; align-items:center}
   .actions .sep{display:none}
   .actions .btn{padding:7px 10px}
 
-  #side{
-    position:fixed; top:0; left:0; bottom:0; width:min(80vw, 300px);
-    z-index:160; box-shadow:0 0 30px rgba(20,30,50,.18);
-    transform:translateX(-102%); transition:transform .24s ease;
-    border-right:1px solid var(--border);
-  }
-  #side.open{transform:translateX(0)}
-  body.kb-open #side{display:none}
+  #main{flex-direction:column}
 
-  #editor{order:1; padding:12px 12px 40px}
+  /* 顶部：搜索框 + 横向卡片条 */
+  #side{
+    position:static; width:100%; flex:none;
+    border-right:none; border-bottom:2px solid var(--border);
+    transform:none; box-shadow:0 1px 3px rgba(20,30,50,.06); z-index:auto;
+  }
+  #side .side-head{padding:6px 10px; flex:none}
+  #searchBox{font-size:16px; padding:6px 10px}
+
+  /* 横向滚动卡片容器 */
+  #cardList{
+    flex:1; overflow-y:hidden; overflow-x:auto;
+    white-space:nowrap; display:flex; align-items:stretch;
+    -webkit-overflow-scrolling:touch; scroll-behavior:smooth;
+    padding:4px 6px; gap:0;
+    scrollbar-width:none; -ms-overflow-style:none;
+  }
+  #cardList::-webkit-scrollbar{display:none}
+
+  /* 韵部分组标签 */
+  .group-head{
+    display:inline-flex; flex:none; align-items:center; gap:4px;
+    padding:4px 10px; margin:2px 6px 2px 2px;
+    font-size:11px; white-space:nowrap;
+    border:none; border-radius:6px;
+    background:var(--accent-soft); color:var(--accent-dark);
+    position:static;
+  }
+  .group-head:hover{background:#d5ecf3}
+  .group-head .caret{display:none}
+  .group-head .group-name{font-size:11px; font-weight:700}
+  .group-head .count{font-size:10px; padding:0 6px; background:rgba(255,255,255,.6)}
+
+  /* 每组内的卡片水平排列 */
+  .group-items{
+    display:inline-flex; flex:none; list-style:none; gap:4px;
+    animation:none; white-space:nowrap; align-items:center;
+    margin:0; padding:0;
+  }
+
+  /* 卡片变为圆角关键词标签 */
+  .card-item{
+    display:inline-flex; flex:none; flex-direction:row; gap:2px; align-items:center;
+    padding:5px 11px; border:1px solid var(--border); border-radius:18px;
+    border-left:1px solid var(--border);
+    background:var(--panel); cursor:pointer;
+    white-space:nowrap; margin:2px 1px;
+    transition:background .12s, border-color .12s, transform .08s;
+    position:static;
+  }
+  .card-item:active{transform:scale(.95)}
+  .card-item:hover{background:#f0f4f7}
+  .card-item.active{background:var(--accent); border-color:var(--accent)}
+  .card-item.active .kw{color:#fff}
+  .card-item.active .ct{color:rgba(255,255,255,.7)}
+  .card-item .kw{font-size:13px; font-weight:600}
+  .card-item .ct{display:none}
+  .card-del{display:none !important}
+
+  /* 底部计数条 */
+  #sideFoot{flex:none; padding:4px 10px; font-size:11px; border-top:1px solid var(--line)}
+
+  /* 编辑区最大化 */
+  #editor{flex:1; padding:10px 10px 44px; overflow-y:auto; -webkit-overflow-scrolling:touch}
   .editor-head h1{font-size:16px}
-  .fields{grid-template-columns:1fr; gap:12px}
+  .nav-btns .nav-btn{padding:5px 12px; font-size:12px}
+  .editor-head .editor-actions{flex:none}
+  .fields{grid-template-columns:1fr; gap:10px}
   .field.full{grid-column:auto}
   /* 16px 防止 iOS 聚焦自动缩放 */
-  .field input, .field textarea, #searchBox{font-size:16px}
-  .empty-state{margin-top:6vh}
+  .field input, .field textarea{font-size:16px}
+  .empty-state{margin-top:2vh}
 }
 </style>
 </head>
 <body>
 
 <header id="toolbar">
-  <button id="btnMenu" class="btn icon-btn" type="button" aria-label="打开卡片列表">☰</button>
-  <div class="brand">
+   <div class="brand">
     <strong>闪卡数据审核</strong>
     <span class="sub">笠翁对韵 · 数据审校编辑工具</span>
   </div>
@@ -323,6 +380,10 @@ body{
 
     <div id="editorBody" hidden>
       <div class="editor-head">
+        <div class="nav-btns">
+          <button id="btnPrev" class="btn nav-btn" type="button" title="上一张 (↑)">◀ 上一张</button>
+          <button id="btnNext" class="btn nav-btn" type="button" title="下一张 (↓)">下一张 ▶</button>
+        </div>
         <h1 id="editorTitle"></h1>
         <span id="editorCategory" class="chip"></span>
         <button id="btnDelete" class="btn danger" type="button">删除卡片</button>
@@ -364,7 +425,6 @@ body{
 </div>
 
 <div id="toast" role="status" aria-live="polite"></div>
-<div id="mask"></div>
 
 <div id="confirmModal" class="modal-mask" hidden>
   <div class="modal" role="dialog" aria-modal="true">
@@ -574,7 +634,6 @@ body{
     renderEditor();
     updateActiveItem();
     updateStats();
-    closeDrawer();
     var items = document.querySelectorAll("#cardList .card-item");
     for (var k = 0; k < items.length; k++) {
       if (String(items[k].getAttribute("data-index")) === String(i)) {
@@ -742,17 +801,16 @@ body{
     toast("已导出 " + state.cards.length + " 张卡片 → " + name);
   });
 
-  /* ========== 移动端抽屉 ========== */
-  function closeDrawer() {
-    $("side").classList.remove("open");
-    $("mask").classList.remove("show");
+  /* ========== 导航：上/下一张 ========== */
+  function navigateCard(delta) {
+    if (!state.cards || !state.cards.length) return;
+    var next = state.currentIndex + delta;
+    if (next < 0 || next >= state.cards.length) return;
+    selectCard(next);
   }
 
-  $("btnMenu").addEventListener("click", function () {
-    $("side").classList.toggle("open");
-    $("mask").classList.toggle("show", $("side").classList.contains("open"));
-  });
-  $("mask").addEventListener("click", closeDrawer);
+  $("btnPrev").addEventListener("click", function () { navigateCard(-1); });
+  $("btnNext").addEventListener("click", function () { navigateCard(1); });
 
   /* ========== 键盘快捷键 ========== */
   document.addEventListener("keydown", function (e) {
@@ -764,11 +822,8 @@ body{
     if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
     var t = document.activeElement;
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-    if (!state.cards || !state.cards.length) return;
-    var next = state.currentIndex + (e.key === "ArrowDown" ? 1 : -1);
-    if (next < 0 || next >= state.cards.length) return;
     e.preventDefault();
-    selectCard(next);
+    navigateCard(e.key === "ArrowDown" ? 1 : -1);
   });
 
   /* ========== 移动端键盘：聚焦时隐藏抽屉 ========== */

@@ -624,7 +624,7 @@ label.btn[for]:hover{border-color:var(--accent); color:var(--accent-dark)}
       if (i === 0) thumbWrap.appendChild(el("span", "default-badge", "默认"));
 
       item.appendChild(thumbWrap);
-      item.appendChild(el("div", "img-name", String(path).replace(/^__BASE___images\//, "")));
+      item.appendChild(el("div", "img-name", shortName(path)));
 
       var ops = el("div", "img-ops");
       if (i > 0) {
@@ -732,7 +732,9 @@ label.btn[for]:hover{border-color:var(--accent); color:var(--accent-dark)}
 
     var card = cards[currentIndex];
     libFiles.forEach(function (f) {
-      var path = "__BASE___images/" + f.name;
+      // 优先用 webkitRelativePath（含真实目录，如 testdata_images/x.png），保证与磁盘路径一致；
+      // 拿不到时回退为 __BASE___images/ + 文件名
+      var path = (f.file && f.file.webkitRelativePath) ? f.file.webkitRelativePath : ("__BASE___images/" + f.name);
       var added = card.image.indexOf(path) !== -1;
       var item = el("div", "lib-item" + (added ? " added" : ""));
       var img = el("img");

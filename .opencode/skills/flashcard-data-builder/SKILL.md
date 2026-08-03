@@ -110,7 +110,8 @@ node 脚本一次性断言：
 2. **agent 分批**：6 并行 × 每 agent 多段，输出量可控；单 agent 塞 90 段必截断
 3. **截断恢复用 task_id 续跑**，保留已生成的上下文，避免重算
 4. **pair 是 v2 独有字段**：旧工具（review.html v1、data.json 151 卡）无此字段，展示时需兼容缺失（显示"暂无对仗关联"）
-5. 导出 JSON 用 `JSON.stringify(out, null, 2)` + 正则还原 `\uXXXX`，保证中文原样
+5. **v2 数据 image 恒为空数组是正常现状**：数据生成阶段不产图，全部 `image: []`；后续用 `doubao-flashcard-generator` skill 生成图片后写回。审核工具中"暂无图片"提示是预期行为，勿当 bug 修（真实事故：用户以为图片没显示是 bug，排查后确认是数据未生成图片）
+6. 导出 JSON 用 `JSON.stringify(out, null, 2)` + 正则还原 `\uXXXX`，保证中文原样
 
 ## 验收清单
 

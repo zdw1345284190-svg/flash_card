@@ -123,6 +123,11 @@ build.js 职责（参考 `work_data260802/build.js` 按需修改 BASE）：
 - **对仗关联 pair 只读展示**：`pair` 字段（格式 `category·keyword`，如 `卷上·一东·其一·地`）不在 SCHEMA 中（不可编辑，normalizeCard 作为未知字段保留在尾部），编辑区底部 `#pairDisplay` **完整显示** pair 值（`.pair-link` 标签：`↔ 卷上·一东·其一·地`，`word-break:break-all` 长文本自动换行，勿截断为 keyword）；点击跳转到对仗卡（`findCardByPair` 按 `category+"·"+keyword` 匹配，未找到 toast 提示）；无 pair 显示"暂无对仗关联"
 - 右侧编辑区：所有字段可编辑（图片提示词用 textarea）
 - 图片管理：缩略图网格 + 每张图「删除」；第一张图为「默认」徽章；「设为默认」把图移到数组首位（不改 schema）；「选择 `<base>_images/` 目录」按钮用 `input[webkitdirectory]` 枚举目录图片作为图片库，点击追加到 image 数组（已在数组中则禁用），另提供手动输入文件名兜底
+- **图片路径解析三件套（防裂图，模板已内置，勿删）**：
+  1. `makeImg(path)` 候选路径回退：img 加载失败自动重试 `../` 前缀——review.html 常位于 `data/` 子目录，而数据里的图片路径（如 `testdata_images/x.png`、`<base>_images/x.png`）是相对**项目根**的，`<img src>` 相对 HTML 位置解析会找 `data/testdata_images/...` → 裂图；回退到 `../` 即命中项目根
+  2. `addImage(path)` 智能前缀：**纯文件名才补 `<base>_images/` 前缀；已含目录结构（`/` 或 `\`）的路径原样保留**（如手动输入 `testdata_images/x.png` 不应被强加前缀变成 `<base>_images/testdata_images/x.png`）
+  3. 目录库用 `webkitRelativePath`：`libFiles` 保存 File 对象（`{name, url, file}`），点击添加时路径取 `f.file.webkitRelativePath`（含真实目录，如 `testdata_images/x.png`），拿不到时回退 `imgPrefix() + f.name`——保证与磁盘路径一致
+- 文件名展示统一走 `shortName(path)`（剥前缀），不要各处散落 replace
 - localStorage 自动保存草稿（key `<base>_draft`）+ 草稿提示条 +「恢复原始数据」按钮（上传后的原始数据 / 仅草稿时清除草稿回空态）
 - **草稿不自动加载**：打开始终空状态，有草稿时空状态显示「恢复上次草稿」入口（点击才载入）——用户明确要求"需要用户点击才行"，勿改回自动加载
 - **草稿路径迁移**：加载草稿时把旧目录前缀（`images/`）自动迁移为 `<base>_images/`，防止重命名后裂图
@@ -183,4 +188,5 @@ await np.setViewportSize({ width: 375, height: 812 });  // 手机视口
 - 模态框等浮层若用 `hidden` 属性控制显隐，注意显式 `display:flex` 会覆盖 `hidden` 的 `display:none`，需补 `.modal-mask[hidden]{display:none}`
 - **上传 JSON 加载模式**：`<input type=file accept=".json">` + FileReader 读取；上传数据需 `normalizeCard` 规范化（字段序重建 + image 数组化 + 缺失字段补空 + 未知字段保留尾部）；无数据时显示空状态引导而非报错
 - **审核页数据一律不自动加载（用户明确要求，勿改回）**：打开始终空状态；localStorage 草稿**不自动载入**，只在空状态显示「恢复上次草稿」入口（含张数），点击才加载（`appliedDraft` 标记草稿来源）；上传后「恢复原始数据」回上传时数据，草稿来源时「清除草稿」回空态；`original` 仅在上传时设置（草稿恢复不设置，避免误恢复）
+- **图片裂图真实事故（2026-08-04）**：用户反馈 review.html"图片没有正常显示"——根因是 review.html 在 `data/` 子目录而图片路径相对项目根；且 `addImage` 把含目录的路径（`testdata_images/x.png`）也强加了 `<base>_images/` 前缀。修复见「工具保留能力」的图片路径解析三件套。**排查顺序**：先看数据 image 是否为空（v2 数据图片未生成时全空是正常现状，不是 bug），再查 `img.getAttribute('src')` 实际解析路径与磁盘路径是否一致
 - **测试脚本避免 PowerShell `-replace` 改中文注释**：会破坏 UTF-8 编码导致语句被注释吞掉（真实事故：blur() 调用被并进注释，测试假失败），直接重写文件

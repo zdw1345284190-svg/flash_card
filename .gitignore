@@ -1,0 +1,20 @@
+# Tool caches
+.playwright-mcp/
+.omo/
+
+# Generated image assets (too large for git)
+data_260802_images/
+
+# Work/scratch directories
+work_data260802/
+*.log
+
+# Image files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.bmp
+*.svg
+*.ico

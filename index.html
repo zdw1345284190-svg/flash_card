@@ -3,55 +3,78 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>笠翁对韵闪卡 · 入口</title>
+<title>笠翁对韵闪卡 · 总入口</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --sky:#4db6e8; --sky-deep:#1f8fce; --sun:#ffc93c; --sun-soft:#fff3cd;
-  --coral:#ff7a5c; --mint:#5fc9a3; --grape:#9b7ed8; --pink:#f291b6;
-  --cream:#fffaf0; --ink:#3c4353; --muted:#7a8394;
+  --coral:#ff7a5c; --mint:#5fc9a3; --mint-deep:#3aa878; --grape:#9b7ed8; --pink:#f291b6;
+  --paper:#fffaf0; --ink:#3c4353; --muted:#7a8394; --faint:#a8b0bd;
 }
-html,body{height:100%}
+html,body{min-height:100%}
 body{
   font-family:"YouYuan","幼圆","Comic Sans MS","Chalkboard SE","Microsoft YaHei","PingFang SC",sans-serif;
   background:linear-gradient(180deg,#d8effb 0%,#f4f9ff 34%,#fff7e6 100%);
-  background-attachment:fixed;
-  color:var(--ink); display:flex; flex-direction:column; align-items:center; justify-content:center;
-  min-height:100vh; padding:24px;
+  background-attachment:fixed; color:var(--ink); padding:32px 16px 48px;
 }
-.card{
-  background:var(--cream); border:3px solid var(--sky);
-  border-radius:20px; padding:48px 56px; text-align:center;
-  box-shadow:0 8px 32px rgba(31,143,206,.18);
-  max-width:640px; width:100%;
-}
-.logo{font-size:38px; font-weight:bold; letter-spacing:3px}
+.wrap{max-width:820px; margin:0 auto}
+header{text-align:center; margin-bottom:28px}
+.logo{font-size:40px; font-weight:bold; letter-spacing:3px}
 .logo .c1{color:var(--sky-deep)} .logo .c2{color:var(--coral)}
-.logo .c3{color:var(--mint)} .logo .c4{color:var(--grape)}
-.sub{margin-top:10px; color:var(--muted); font-size:15px}
-.links{margin-top:36px; display:flex; flex-direction:column; gap:16px}
+.logo .c3{color:var(--mint-deep)} .logo .c4{color:var(--grape)}
+.sub{margin-top:8px; color:var(--muted); font-size:15px}
+
+.group{background:var(--paper); border-radius:18px; padding:20px 24px 24px; margin-bottom:18px;
+  box-shadow:0 4px 18px rgba(31,143,206,.12); border:2px solid rgba(77,182,232,.35)}
+.group h2{font-size:17px; letter-spacing:1px; padding-bottom:10px; margin-bottom:14px; border-bottom:2px dashed rgba(77,182,232,.35)}
+.group h2 .dot{display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:8px; vertical-align:1px}
+.g-260802 h2{color:var(--sky-deep)} .g-260802 h2 .dot{background:var(--sky)}
+.g-260803 h2{color:var(--coral)} .g-260803 h2 .dot{background:var(--coral)}
+.g-test h2{color:var(--muted)} .g-test h2 .dot{background:var(--faint)}
+
 a.link{
   display:flex; align-items:center; justify-content:space-between; gap:12px;
-  text-decoration:none; padding:18px 22px; border-radius:14px;
-  font-size:17px; font-weight:bold; letter-spacing:1px; color:#fff;
-  transition:transform .15s, box-shadow .15s;
+  text-decoration:none; padding:15px 18px; border-radius:12px; margin-bottom:12px;
+  background:#fff; color:var(--ink); font-size:16px; font-weight:bold; letter-spacing:.5px;
+  border:2px solid #eef1f5; transition:transform .15s, box-shadow .15s, border-color .15s;
 }
-a.link:hover{transform:translateY(-3px)}
-a.link .tag{font-size:12px; font-weight:normal; opacity:.9; letter-spacing:0}
-.link-print{background:linear-gradient(135deg,var(--sky),var(--sky-deep)); box-shadow:0 4px 14px rgba(31,143,206,.35)}
-.link-edit{background:linear-gradient(135deg,var(--mint),#3aa878); box-shadow:0 4px 14px rgba(95,201,163,.35)}
-.foot{margin-top:28px; color:var(--muted); font-size:13px}
+a.link:last-child{margin-bottom:0}
+a.link:hover{transform:translateY(-2px); box-shadow:0 6px 16px rgba(60,67,83,.12)}
+a.link:hover .arrow{transform:translateX(3px)}
+a.link .arrow{font-size:18px; flex:none; transition:transform .15s; color:var(--faint)}
+a.link .path{font-size:12px; font-weight:normal; color:var(--muted); margin-top:3px; letter-spacing:0; font-family:Consolas,monospace}
+footer{text-align:center; color:var(--muted); font-size:13px; margin-top:8px}
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="logo"><span class="c1">笠</span><span class="c2">翁</span><span class="c3">对</span><span class="c4">韵</span></div>
-  <div class="sub">儿童闪卡 · 数据 260802</div>
-  <div class="links">
-    <a class="link link-print" href="data_260802_card.html">🖨 闪卡打印版（B5 横版）<span class="tag">双面打印</span></a>
-    <a class="link link-edit" href="data_260802.html">✏ 数据展示与编辑工具<span class="tag">审核用</span></a>
-  </div>
-  <div class="foot">双击打开即可离线使用 · 打印版按 Ctrl+P</div>
+<div class="wrap">
+  <header>
+    <div class="logo"><span class="c1">笠</span><span class="c2">翁</span><span class="c3">对</span><span class="c4">韵</span></div>
+    <div class="sub">闪卡工作台 · 全部页面索引</div>
+  </header>
+
+  <!-- ============ 数据 260802 ============ -->
+  <section class="group g-260802">
+    <h2><span class="dot"></span>数据 260802 · 定稿</h2>
+    <a class="link" href="data_260802_card.html"><span>🖨 闪卡打印版（B5 横版 · 双面打印）<div class="path">data_260802_card.html</div></span><span class="arrow">→</span></a>
+    <a class="link" href="data_260802.html"><span>✏ 数据展示与编辑工具（增删图 / 改字段 / 导出）<div class="path">data_260802.html</div></span><span class="arrow">→</span></a>
+  </section>
+
+  <!-- ========== 数据 260803（凯叔） ========== -->
+  <section class="group g-260803">
+    <h2><span class="dot"></span>数据 260803 · 凯叔版</h2>
+    <a class="link" href="data/凯叔笠翁对韵_260803.html"><span>📖 全文排版阅读版（古籍暖纸风格）<div class="path">data/凯叔笠翁对韵_260803.html</div></span><span class="arrow">→</span></a>
+    <a class="link" href="data/review.html"><span>✅ 闪卡数据审核工具（逐卡核对 / 修正 / 导出）<div class="path">data/review.html</div></span><span class="arrow">→</span></a>
+  </section>
+
+  <!-- ========== 测试数据 ========== -->
+  <section class="group g-test">
+    <h2><span class="dot"></span>测试数据（开发用）</h2>
+    <a class="link" href="testdata_card.html"><span>🖨 测试闪卡打印版<div class="path">testdata_card.html</div></span><span class="arrow">→</span></a>
+    <a class="link" href="testdata.html"><span>✏ 测试数据展示与编辑工具<div class="path">testdata.html</div></span><span class="arrow">→</span></a>
+  </section>
+
+  <footer>双击打开即可离线使用 · 打印版在对应页面按 Ctrl+P</footer>
 </div>
 </body>
 </html>

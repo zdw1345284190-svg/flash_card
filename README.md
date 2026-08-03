@@ -156,17 +156,19 @@ flash_card/
 
 ## 8. 经验沉淀（实操记录，供后续任务参考）
 
-### 8.1 闪卡图片生成工作流（2026-08-02 已跑通）
+### 8.1 闪卡图片生成工作流（2026-08-02 已跑通，2026-08-03 流程更新）
 
-输入一个闪卡 JSON 数据文件（如 `data260802.json`，文件名可变），产出三件套，**命名以输入文件名为前缀统一**：
+输入一个闪卡 JSON 数据文件（如 `data_260802.json`，文件名可变），产出三件套，**命名以输入文件名为前缀统一**：
 
 | 产出 | 说明 |
 |---|---|
-| `<base>_images/` | 生成的图片目录（如 `data260802_images/`） |
-| `<base>.js` | JS 版数据：每张卡补入「图片提示词」字段 + `image` 路径数组（图片已生成填入） |
-| `<base>.html` | 展示与编辑工具（增删图片/选默认图/改字段/导出），最终人工审核用 |
+| `<base>_images/` | 生成的图片目录（如 `data_260802_images/`） |
+| `<base>.json` | **更新原数据文件**：每张卡写回「图片提示词」+ `image` 路径数组（构建脚本 `build.js` 写回，不再生成 JS 版数据文件） |
+| `<base>-review.html` | 审核工具：**上传 JSON 加载** → 编辑 → 导出 JSON 覆盖源文件（样式同旧版编辑工具） |
 
-其中 `<base>` = 输入文件名去掉扩展名（`data260802.json` → `data260802`）。
+其中 `<base>` = 输入文件名去掉扩展名（`data_260802.json` → `data_260802`）。
+
+> **流程变更**：旧流程产出 `<base>.js`（`const xxx = [...]`）+ `<base>.html`（`<script src>` 加载）已取消；图片结果直接写回 json，审核页通过 `<input type=file>` 上传 JSON（file:// 下 fetch 受限）。
 
 **图片提示词模板**（统一风格，保证横版无文字）：
 
@@ -181,11 +183,11 @@ flash_card/
 - 下载：点击缩略图打开编辑面板 → 点「保存」→ 捕获 download 事件 → `saveAs` 到 `<base>_images/<拼音>_<序号>.png`
 - 环境：Windows 需 `$env:NODE_PATH = "C:\Users\bruce\AppData\Roaming\npm\node_modules"` 才能 require playwright
 
-### 8.2 testdata.html 编辑工具（审核入口）
+### 8.2 <base>-review.html 审核工具（审核入口）
 
-- 用途：展示 + 编辑 + 最终审核卡片数据，**非最终交付物**
-- 功能：增删图片（选择目录枚举/手动输入）、设为默认（数组第一张为默认）、编辑全部字段、新增/删除卡片、导出 `<base>.js` / `.json`（下载后替换源文件）
-- 数据流：`<script src="data/testdata.js">` 加载 → 编辑 → localStorage 草稿自动保存（刷新不丢）→ 导出替换源文件
+- 用途：上传 JSON → 展示 + 编辑 + 最终审核卡片数据，**非最终交付物**
+- 数据流：**点击「上传 JSON」选择 `data/<base>.json`**（`<input type=file>` + FileReader，初始为空状态引导，**数据一律不自动加载**；有草稿时仅显示「恢复上次草稿」入口，点击才载入）→ 编辑 → `localStorage` 草稿自动保存（刷新不丢）→ 点「导出 JSON」下载/复制内容 → 手动覆盖源文件
+- 功能：增删图片（选择目录枚举/手动输入）、设为默认（数组第一张为默认）、编辑全部字段（含图片提示词）、新增/删除卡片、导出 `<base>.json`
 
 ### 8.3 已知坑与对策（务必遵守）
 
@@ -195,7 +197,7 @@ flash_card/
 | 虚拟滚动 + 懒加载 | 未加载的 img src 是 `data:image/svg` 占位；滚动会卸载远处图片，重新出现时被误判为"新图" | 检测前滚动到底部；下载后**全量 MD5 去重**，重复文件删除并重下 |
 | 点「保存」下载错图 | 编辑面板停留在上一张图的会话中，保存的是旧图 | 下载前核对面板内 img 的 URL 基名与目标一致 |
 | 草稿路径残留 | 目录重命名后（如 `images/` → `testdata_images/`），localStorage 旧草稿仍指向旧路径 → 全部裂图 | 编辑工具加载草稿时自动迁移旧前缀（模板已实现）；用户浏览器中的旧草稿需手动清除 |
-| 全局变量名不符 | `<base>.js` 全局变量与 HTML 引用不一致 → 数据加载失败 | `<base>.js` 变量名 = `<base>`（如 `data260802`），HTML 用 `typeof __BASE__` 检查 |
+| JSON 数据格式错乱 | 旧流程依赖 `<base>.js` 全局变量（`const data260802 = [...]`），已废弃 | 现流程：数据写回 `<base>.json`，审核页「上传 JSON」加载（`<input type=file>` + FileReader），导出 JSON 覆盖源文件；`<base>-review.html` 初始为空状态引导 |
 | JSON 导出中文变 `\uXXXX` | JSON.stringify 默认转义非 ASCII | 导出时用正则还原 `\u([0-9a-fA-F]{4})` 为原始中文 |
 
 ### 8.4 验收清单（图片任务完成后自查）
@@ -209,7 +211,7 @@ flash_card/
 ### 8.5 项目级 skill
 
 - 位置：`.opencode/skills/doubao-flashcard-generator/`（随项目走，复制项目即携带）
-- 内容：`SKILL.md`（完整工作流文档，含**移动端适配经验**与验收清单）+ `reference/gen_images.js`（生成脚本模板）+ `reference/data_editor.html`（编辑工具模板，已内置**手机端布局**：底部横滑卡片条 + 编辑器内部滚动 + 键盘聚焦处理，均以 `__BASE__` 占位符泛化）
+- 内容：`SKILL.md`（完整工作流文档，含**移动端适配经验**与验收清单）+ `reference/gen_images.js`（生成脚本模板）+ `reference/data_review.html`（审核工具模板：上传 JSON 加载 + 导出覆盖源文件，已内置**手机端布局**：底部横滑卡片条 + 编辑器内部滚动 + 键盘聚焦处理，均以 `__BASE__` 占位符泛化）
 - 用法：新数据文件进来时，让 AI 加载该 skill 并按 §8.1 流程执行
 
 ### 8.6 后续扩展方向
